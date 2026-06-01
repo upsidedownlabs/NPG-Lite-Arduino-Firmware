@@ -15,6 +15,7 @@
 // Copyright (c) 2024-2025 Krishnanshu Mittal - krishnanshu@upsidedownlabs.tech
 // Copyright (c) 2024-2025 Deepak Khatri      - deepak@upsidedownlabs.tech
 // Copyright (c) 2024-2025 Upside Down Labs   - contact@upsidedownlabs.tech
+// Copyright (c) 2026 Varun Patil - vap05072006@gmail.com
 //
 // At Upside Down Labs, we create open-source DIY neuroscience hardware and software.
 // Our mission is to make neuroscience affordable and accessible for everyone.
@@ -434,7 +435,7 @@ void handleSerialCommands()
 }
 
 // ---------------------------------------------------------------
-//  BLE status LED — pixel 0
+//  BLE status LED: pixel 0
 // ---------------------------------------------------------------
 void updateBLELed()
 {
@@ -460,7 +461,7 @@ void updateBLELed()
     }
     else
     {
-      // 2s passed with no new command — return to green
+      // 2s passed with no new command, return to green
       ledState = LED_GREEN;
       color = pixel.Color(0, 20, 0);
     }
@@ -742,7 +743,7 @@ void loop()
     gEnv1 = Envelopefilter1.getEnvelope(abs(filtemg1));
     gEnv2 = Envelopefilter2.getEnvelope(abs(filtemg2));
 
-    // ── Debug print — once every N samples, no repetition ──
+    // ── Debug print once every N samples, no repetition ──
     if (debugEnabled)
     {
       if (++debugSampleCount >= DEBUG_PRINT_EVERY_N_SAMPLES)

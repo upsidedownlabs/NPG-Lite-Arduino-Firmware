@@ -14,6 +14,7 @@
 // Copyright (c) 2026 Krishnanshu Mittal - krishnanshu@upsidedownlabs.tech
 // Copyright (c) 2026 Deepak Khatri - deepak@upsidedownlabs.tech
 // Copyright (c) 2026 Upside Down Labs - contact@upsidedownlabs.tech
+// Copyright (c) 2026 Varun Patil - vap05072006@gmail.com
 
 // At Upside Down Labs, we create open-source DIY neuroscience hardware and software.
 // Our mission is to make neuroscience affordable and accessible for everyone.
@@ -655,7 +656,7 @@ void loop()
     lastBatteryCheck = currentMillis;
   }
 
-  // NOW flush dirty — battery color is already set
+  // NOW flush dirty, battery color is already set
   if (pixelDirty)
   {
     pixel.setPixelColor(BATTERY_LED, batteryColor);

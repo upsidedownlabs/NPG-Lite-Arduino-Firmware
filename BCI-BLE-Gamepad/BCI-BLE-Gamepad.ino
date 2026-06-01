@@ -515,12 +515,6 @@ void loop()
       lastModeSwitch = millis();
     }
 
-    // Debug on Serial monitor
-    // Serial.print(env1);
-    // Serial.print(",  ");
-    // Serial.print(env2);
-    // Serial.println();
-
     // 4) Map to 16-bit X
     uint16_t x16;
     if (env1 > 80 && env1 > env2)
@@ -539,7 +533,7 @@ void loop()
     // 5) Send X-axis + any button states
     if (bleGamepad.isConnected())
     {
-      // setAxes(x, y, z, rx, ry, rz) — only X changes, others stay 0
+      // setAxes(x, y, z, rx, ry, rz) only X changes, others stay 0
       bleGamepad.setAxes(x16, 0, 0, 0, 0, 0);
       bleGamepad.sendReport();
       if (x16 != 16383)

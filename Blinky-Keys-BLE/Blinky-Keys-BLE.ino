@@ -15,6 +15,7 @@
 // Copyright (c) 2025 Aman Maheshwari - aman@upsidedownlabs.tech
 // Copyright (c) 2025 Deepak Khatri - deepak@upsidedownlabs.tech
 // Copyright (c) 2025 Upside Down Labs - contact@upsidedownlabs.tech
+// Copyright (c) 2026 Varun Patil - vap05072006@gmail.com
 
 #include <Arduino.h>
 #include <Adafruit_NeoPixel.h>

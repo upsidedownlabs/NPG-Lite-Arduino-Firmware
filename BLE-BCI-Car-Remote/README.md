@@ -47,7 +47,7 @@ You need this address to pair with the car firmware.
    ============================================
    ```
 3. Paste the MAC address into the car firmware where indicated
-4. Reset the car — it will now connect automatically
+4. Reset the car, it will now connect automatically
 
 ---
 
@@ -225,7 +225,7 @@ Default thresholds are a starting point. Adjust them in the firmware based on yo
 
 * Use the car in open, safe environments
 * Avoid operation near people or fragile objects
-* Signal thresholds require per-user calibration — EEG and EMG vary significantly between individuals
+* Signal thresholds require per-user calibration, EEG and EMG vary significantly between individuals
 
 ---
 
