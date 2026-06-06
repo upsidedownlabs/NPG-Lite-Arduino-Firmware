@@ -53,7 +53,7 @@ uint32_t imuAddress = 0x68;
 #define MAX_SENSITIVITY 10.0   // Fastest speed: LOWER = more controlled (4.0-15.0)
 
 //  PRECISION SETTINGS (FOR MINUTE MOVEMENTS)
-#define PRECISION_ZONE 4.0        // Precision angle range: HIGHER = more precision zone (1.0-4.0)
+#define PRECISION_ZONE 4.0         // Precision angle range: HIGHER = more precision zone (1.0-4.0)
 #define PRECISION_MULTIPLIER 0.1  // Precision sensitivity: LOWER = more precise (0.2-0.6)
 
 //  SMOOTHING SETTINGS (FOR RESPONSIVENESS)
@@ -62,12 +62,12 @@ uint32_t imuAddress = 0x68;
 #define STOP_THRESHOLD 0.2       // Complete stop point: LOWER = stops sooner (0.1-0.5)
 
 //  ACCELERATION SETTINGS
-#define ACCEL_CURVE 2.5       // Acceleration curve: HIGHER = faster acceleration (1.5-4.0)
+#define ACCEL_CURVE 2.9       // Acceleration curve: HIGHER = faster acceleration (1.5-4.0)
 #define ACCEL_MULTIPLIER 2.5  // Acceleration strength: HIGHER = more acceleration (2.0-4.0)
 
-//  RANGE / GYRO SETTINGS
-#define MAX_RATE 60.0         // deg/s mapped to MAX_SENSITIVITY (replaces MAX_TILT_ANGLE)
-#define GYRO_DEADZONE 5.0      // deg/s below this = no movement (rest creep guard)
+//  RANGE / GYRO SETTINGS (deg/s)
+#define MAX_RATE 60.0          // deg/s mapped to MAX_SENSITIVITY
+#define GYRO_DEADZONE 5.0      // deg/s below this = no movement
 #define GYRO_BIAS_SAMPLES 200  // samples averaged for bias at rest
 #define GESTURE_MIN_RATE 15.0  // deg/s a gesture must exceed to be valid
 
