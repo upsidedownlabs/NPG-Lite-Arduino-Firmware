@@ -36,7 +36,7 @@ Each folder is a self-contained Arduino sketch targeting a specific application.
 
 All BLE-enabled or peripheral-using sketches follow a shared 6-LED NeoPixel convention so the board behaves predictably across firmware variants.
 
-<img src="assets/NPG-LITE-LED-labeled.jpeg" width=60% alt="NPG Lite LED Layout"/>
+<img src="assets/NPG-LITE-LED-labeled.jpeg" width=90% alt="NPG Lite LED Layout"/>
 
 | LED | Standard Role | Colors |
 |-----|--------------|--------|
