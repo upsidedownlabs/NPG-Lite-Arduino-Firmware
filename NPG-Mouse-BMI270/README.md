@@ -2,16 +2,18 @@
 
 This project turns the Neuro Playground Lite (NPG) into a hands-free mouse controller using a headband. It combines EEG/Jaw clench/EOG blink detection and head movement sensing for intuitive computer control.
 
+
 ## **[How to Use](#how-to-use)**
 
 ## What It Does
 - **Head Movement → Mouse Movement:**
   - The BMI270 sensor (gyro + accelerometer) is attached to the headband and connected to NPG via the Qwiic port.
-  - Moving your head up/down or left/right moves the mouse cursor on your computer.
-- **Blink Detection & Jaw Clench → Mouse Clicks:**
+  - Moving your head up/down or left/right moves the cursor by a fixed amount. Cursor displacement is directly proportional to how much you move your head, and stops when your head stops (unlike joystick mode where the cursor moves continuously based on tilt angle).
+  - This project uses only gyroscope of the sensor.
+- **Blink Detection & jaw clench → Mouse Clicks:**
   - NPG reads single-channel EOG data.
-  - Jaw clench triggers a left mouse click.
-  - Triple blinks trigger a right mouse click.
+  - jaw clench triggers a left mouse click.
+  - Triple blinks triggers a right mouse click.
 
 ## How It Works
 - **Sensors Used:**
@@ -26,6 +28,7 @@ This project turns the Neuro Playground Lite (NPG) into a hands-free mouse contr
   - The headband calibrates itself for neutral position and movement directions using vibration feedback.
 - **BLE Connection:**
   - NPG acts as a Bluetooth mouse and keyboard, allowing wireless control.
+
 
 ## How To Use
 1. Attach the NPG and BMI270 to a headband.

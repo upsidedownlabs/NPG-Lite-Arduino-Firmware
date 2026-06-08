@@ -7,7 +7,8 @@ This project turns the Neuro Playground Lite (NPG) into a hands-free mouse contr
 ## What It Does
 - **Head Movement → Mouse Movement:**
   - The MPU6050 sensor (gyro + accelerometer) is attached to the headband and connected to NPG via the Qwiic port.
-  - Moving your head up/down or left/right moves the mouse cursor on your computer.
+  - Moving your head up/down or left/right moves the cursor by a fixed amount. Cursor displacement is directly proportional to how much you move your head, and stops when your head stops (unlike joystick where the cursor moves continuously based on tilt angle).
+  - This project uses only gyroscope of sensor.
 - **Blink Detection → Mouse Clicks:**
   - NPG reads single-channel EOG data.
   - Double blinks trigger a left mouse click.

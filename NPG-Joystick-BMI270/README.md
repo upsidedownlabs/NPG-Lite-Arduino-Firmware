@@ -1,11 +1,11 @@
-# NPG-Mouse: Neuro Playground Lite Mouse Control
+# NPG-Joystick: Neuro Playground Lite Joystick-style Mouse Control
 
-This project turns the Neuro Playground Lite (NPG) into a hands-free mouse controller using a headband. It combines EEG/Jaw clench/EOG blink detection and head movement sensing for intuitive computer control.
+This project turns the Neuro Playground Lite (NPG) into a hands-free joystick-style mouse controller using a headband. It combines EEG/Jaw clench/EOG blink detection and head movement sensing for intuitive computer control.
 
 ## What It Does
-- **Head Movement → Mouse Movement:**
-  - The BMI270 sensor (gyro + accelerometer) is attached to the headband and connected to NPG via the QwiKK port.
-  - Moving your head up/down or left/right moves the mouse cursor on your computer.
+- **Head Movement → Joystick-Style Cursor Movement:**
+  - The BMI270 sensor (gyro + accelerometer) is attached to the headband and connected to NPG via the Qwiic port.
+  - Tilting your head up/down or left/right moves the cursor continuously. The greater the tilt, the faster it moves. Return your head to neutral to stop.
 - **Blink Detection & jaw clench → Mouse Clicks:**
   - NPG reads single-channel EOG data.
   - jaw clench triggers a left mouse click.
@@ -15,8 +15,8 @@ This project turns the Neuro Playground Lite (NPG) into a hands-free mouse contr
 - **Sensors Used:**
   - **BMI270:** Detects head tilt and orientation for cursor movement.
   - **EEG/Jaw clench/EOG Input:** Detects blinks for mouse clicks.
-- **Mouse Control:**
-  - The code processes head tilt angles and translates them into smooth mouse movements.
+- **Joystick-Style Cursor Control:**
+  - The code maps head tilt angle to cursor speed, tilt more to move faster, center your head to stop. This is analogous to a joystick rather than a mouse.
   - Sensitivity, deadzone, and acceleration are adjustable for comfort and precision.
 - **Blink Detection:**
   - The EOG signal is filtered and analyzed to detect blinks.
@@ -27,10 +27,10 @@ This project turns the Neuro Playground Lite (NPG) into a hands-free mouse contr
 
 ## Usage
 1. Attach the NPG and BMI270 to a headband.
-2. Connect the BMI270 to NPG via the QwiKK port.
+2. Connect the BMI270 to NPG via the Qwiic port.
 3. Wear the headband and power on NPG.
 4. Calibrate by following vibration feedback.
-5. Move your head to control the mouse cursor.
+5. Tilt your head to move the cursor. More tilt means faster movement; center to stop.
 6. Jaw clench for left click, blink three times for right click.
 
 ---
