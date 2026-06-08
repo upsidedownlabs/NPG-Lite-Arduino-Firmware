@@ -42,8 +42,8 @@ All BLE-enabled or peripheral-using sketches follow a shared 6-LED NeoPixel conv
 |-----|--------------|--------|
 | **LED 1** | BLE / Wi-Fi connection status | GREEN = connected · RED = disconnected · BLUE = actively streaming data |
 | **LED 2** | General purpose | Sketch-specific |
-| **LED 3** | I²C peripheral status | GREEN = device found · RED = device missing |
-| **LED 4** | General purpose | Sketch-specific |
+| **LED 3** | General purpose | Sketch-specific |
+| **LED 4** | I²C peripheral status | GREEN = device found · RED = device missing |
 | **LED 5** | General purpose | Sketch-specific |
 | **LED 6** | Battery level | GREEN > 70 % · ORANGE 20–70 % · RED < 20 % |
 
