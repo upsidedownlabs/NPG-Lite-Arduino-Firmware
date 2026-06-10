@@ -43,12 +43,12 @@
 // ══════════════════════════════════════════════════════════════════════════════
 
 //  BASIC SETTINGS (ADJUST THESE TO FINE-TUNE)
-#define MOUSE_UPDATE_RATE 8    // Update frequency: LOWER = faster updates (8-20)
-#define MIN_SENSITIVITY 0.5    // Slowest speed: LOWER = more precise (0.1-0.5)
-#define MAX_SENSITIVITY 10.0   // Fastest speed: LOWER = more controlled (4.0-15.0)
+#define MOUSE_UPDATE_RATE 8   // Update frequency: LOWER = faster updates (8-20)
+#define MIN_SENSITIVITY 0.5   // Slowest speed: LOWER = more precise (0.1-0.5)
+#define MAX_SENSITIVITY 10.0  // Fastest speed: LOWER = more controlled (4.0-15.0)
 
 //  PRECISION SETTINGS (FOR MINUTE MOVEMENTS)
-#define PRECISION_ZONE 4.0         // Precision angle range: HIGHER = more precision zone (1.0-4.0)
+#define PRECISION_ZONE 4.0        // Precision angle range: HIGHER = more precision zone (1.0-4.0)
 #define PRECISION_MULTIPLIER 0.1  // Precision sensitivity: LOWER = more precise (0.2-0.6)
 
 //  SMOOTHING SETTINGS (FOR RESPONSIVENESS)

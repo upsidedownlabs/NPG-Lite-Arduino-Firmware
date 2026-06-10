@@ -47,13 +47,12 @@ uint32_t imuAddress = 0x68;
 // ══════════════════════════════════════════════════════════════════════════════
 
 //  BASIC SETTINGS (ADJUST THESE TO FINE-TUNE)
-#define MOUSE_UPDATE_RATE 8  // Update frequency: LOWER = faster updates (8-20)
-#define DEADZONE 0.3          // Rest zone: HIGHER = easier to stop (0.3-2.0) degrees
-#define MIN_SENSITIVITY 0.5  // Slowest speed: LOWER = more precise (0.1-0.5)
-#define MAX_SENSITIVITY 10.0   // Fastest speed: LOWER = more controlled (4.0-15.0)
+#define MOUSE_UPDATE_RATE 8   // Update frequency: LOWER = faster updates (8-20)
+#define MIN_SENSITIVITY 0.5   // Slowest speed: LOWER = more precise (0.1-0.5)
+#define MAX_SENSITIVITY 10.0  // Fastest speed: LOWER = more controlled (4.0-15.0)
 
 //  PRECISION SETTINGS (FOR MINUTE MOVEMENTS)
-#define PRECISION_ZONE 4.0         // Precision angle range: HIGHER = more precision zone (1.0-4.0)
+#define PRECISION_ZONE 4.0        // Precision angle range: HIGHER = more precision zone (1.0-4.0)
 #define PRECISION_MULTIPLIER 0.1  // Precision sensitivity: LOWER = more precise (0.2-0.6)
 
 //  SMOOTHING SETTINGS (FOR RESPONSIVENESS)
@@ -996,36 +995,14 @@ void loop() {
     Serial.print(", Z: ");
     Serial.println(gyroBias[2]);
     switch (calState) {
-      case CAL_IDLE:
-        Serial.println("IDLE");
-        break;
-      case CAL_INIT_WAIT:
-        Serial.println("INIT_WAIT");
-        break;
-      case CAL_UP_VIBRATE:
-        Serial.println("UP_VIBRATE");
-        break;
-      case CAL_UP_WAIT:
-        Serial.println("UP_WAIT");
-        break;
-      case CAL_CENTER_WAIT1:
-        Serial.println("CENTER_WAIT1");
-        break;
-      case CAL_LEFT_VIBRATE:
-        Serial.println("LEFT_VIBRATE");
-        break;
-      case CAL_LEFT_WAIT:
-        Serial.println("LEFT_WAIT");
-        break;
-      case CAL_CENTER_WAIT2:
-        Serial.println("CENTER_WAIT2");
-        break;
-      case CAL_NEUTRAL_SAMPLE:
-        Serial.println("NEUTRAL_SAMPLE");
-        break;
-      case CAL_COMPLETE:
-        Serial.println("COMPLETE");
-        break;
+      case CAL_IDLE: Serial.println("IDLE"); break;
+      case CAL_INIT_WAIT: Serial.println("INIT_WAIT"); break;
+      case CAL_UP_VIBRATE: Serial.println("UP_VIBRATE"); break;
+      case CAL_UP_WAIT: Serial.println("UP_WAIT"); break;
+      case CAL_LEFT_VIBRATE: Serial.println("LEFT_VIBRATE"); break;
+      case CAL_LEFT_WAIT: Serial.println("LEFT_WAIT"); break;
+      case CAL_NEUTRAL_SAMPLE: Serial.println("NEUTRAL_SAMPLE"); break;
+      case CAL_COMPLETE: Serial.println("COMPLETE"); break;
     }
     Serial.println("═══════════════════════════════════");
   }
