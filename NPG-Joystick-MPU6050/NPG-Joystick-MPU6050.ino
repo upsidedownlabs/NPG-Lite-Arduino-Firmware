@@ -37,13 +37,13 @@
 // ══════════════════════════════════════════════════════════════════════════════
 
 //  BASIC SETTINGS (ADJUST THESE TO FINE-TUNE)
-#define MOUSE_UPDATE_RATE 12   // Update frequency: LOWER = faster updates (8-20)
-#define DEADZONE 4.0           // Rest zone: HIGHER = easier to stop (3.0-8.0) degrees
-#define MIN_SENSITIVITY 0.15   // Slowest speed: LOWER = more precise (0.1-0.5)
-#define MAX_SENSITIVITY 8.0    // Fastest speed: LOWER = more controlled (4.0-15.0)
+#define MOUSE_UPDATE_RATE 12  // Update frequency: LOWER = faster updates (8-20)
+#define DEADZONE 4.0          // Rest zone: HIGHER = easier to stop (3.0-8.0) degrees
+#define MIN_SENSITIVITY 0.15  // Slowest speed: LOWER = more precise (0.1-0.5)
+#define MAX_SENSITIVITY 8.0   // Fastest speed: LOWER = more controlled (4.0-15.0)
 
 //  CALIBRATION SETTINGS
-#define GYRO_BIAS_SAMPLES 200  // samples averaged for bias at rest
+#define ACC_BIAS_SAMPLES 200  // samples averaged for bias at rest
 
 //  SMOOTHING SETTINGS (FOR RESPONSIVENESS)
 #define MOVEMENT_SMOOTHING 0.70  // Movement filter: LOWER = more responsive (0.5-0.85)
@@ -55,7 +55,7 @@
 #define ACCEL_MULTIPLIER 2.8  // Acceleration strength: HIGHER = more acceleration (2.0-4.0)
 
 //  RANGE SETTINGS
-#define MAX_TILT_ANGLE 20.0   // Maximum head tilt angle (15.0-30.0) degrees
+#define MAX_TILT_ANGLE 20.0  // Maximum head tilt angle (15.0-30.0) degrees
 
 // ══════════════════════════════════════════════════════════════════════════════
 
@@ -87,26 +87,18 @@ enum CalibrationState {
 CalibrationState calState = CAL_IDLE;
 unsigned long calStateStartTime = 0;
 
-// ── GYRO BIAS ──
-float gyroBias[3] = { 0, 0, 0 };
-
 // ── LEARNED AXIS MAPPING ──
 int xAxisIndex = 0;
-int xAxisSign = 1;  // forward axis (nod gesture rotates around this)
+int xAxisSign = 1;  // side axis (left gesture resolves this)
 int yAxisIndex = 1;
-int yAxisSign = 1;  // side axis   (tilt gesture rotates around this)
-
-// ── GESTURE ACCUMULATION (during calibration) ──
-float gestureSum[3] = { 0, 0, 0 };
-unsigned long lastGyroMicros = 0;
+int yAxisSign = 1;  // forward axis (up gesture resolves this)
 
 // ── BIAS SAMPLING ──
 int biasSampleCount = 0;
-float biasSumGyro[3] = { 0, 0, 0 };
 float biasSumAcc[3] = { 0, 0, 0 };
+float calStartAcc[3] = { 0, 0, 0 };
 
 // ── CACHED SENSOR DATA ──
-float readingsGyro[3] = { 0, 0, 0 };
 float readingsAcc[3] = { 0, 0, 0 };
 
 // ── SUB-PIXEL ACCUMULATION ──
@@ -247,16 +239,16 @@ void resolveAxis(float sum[3], int &axisIndex, int &axisSign) {
 }
 
 void updateCalibrationStateMachine(unsigned long nowMs) {
-  if (calState == CAL_IDLE || calState == CAL_COMPLETE)
-    return;
+  if (calState == CAL_IDLE || calState == CAL_COMPLETE) return;
 
   unsigned long elapsed = nowMs - calStateStartTime;
 
   switch (calState) {
     case CAL_INIT_WAIT:
       if (elapsed >= 3000) {
-        gestureSum[0] = gestureSum[1] = gestureSum[2] = 0;
-        lastGyroMicros = micros();
+        calStartAcc[0] = readingsAcc[0];
+        calStartAcc[1] = readingsAcc[1];
+        calStartAcc[2] = readingsAcc[2];
         calState = CAL_UP_VIBRATE;
         calStateStartTime = nowMs;
         startVibration();
@@ -264,27 +256,23 @@ void updateCalibrationStateMachine(unsigned long nowMs) {
       break;
 
     case CAL_UP_VIBRATE:
-      {
-        unsigned long n = micros();
-        float dt = (n - lastGyroMicros) / 1000000.0f;
-        lastGyroMicros = n;
-        gestureSum[0] += readingsGyro[0] * dt;
-        gestureSum[1] += readingsGyro[1] * dt;
-        gestureSum[2] += readingsGyro[2] * dt;
-        if (elapsed >= 3000) {
-          stopVibration();
-          resolveAxis(gestureSum, yAxisIndex, yAxisSign);
-          yAxisSign = -yAxisSign;
-          calState = CAL_UP_WAIT;
-          calStateStartTime = nowMs;
-        }
-        break;
+      if (elapsed >= 3000) {
+        float d[3] = { 0 };
+        d[0] = readingsAcc[0] - calStartAcc[0];
+        d[1] = readingsAcc[1] - calStartAcc[1];
+        d[2] = readingsAcc[2] - calStartAcc[2];
+        resolveAxis(d, yAxisIndex, yAxisSign);
+        stopVibration();
+        calState = CAL_UP_WAIT;
+        calStateStartTime = nowMs;
       }
+      break;
 
     case CAL_UP_WAIT:
       if (elapsed >= 3000) {
-        gestureSum[0] = gestureSum[1] = gestureSum[2] = 0;
-        lastGyroMicros = micros();
+        calStartAcc[0] = readingsAcc[0];
+        calStartAcc[1] = readingsAcc[1];
+        calStartAcc[2] = readingsAcc[2];
         calState = CAL_LEFT_VIBRATE;
         calStateStartTime = nowMs;
         startVibration();
@@ -292,30 +280,23 @@ void updateCalibrationStateMachine(unsigned long nowMs) {
       break;
 
     case CAL_LEFT_VIBRATE:
-      {
-        unsigned long n = micros();
-        float dt = (n - lastGyroMicros) / 1000000.0f;
-        lastGyroMicros = n;
-        gestureSum[0] += readingsGyro[0] * dt;
-        gestureSum[1] += readingsGyro[1] * dt;
-        gestureSum[2] += readingsGyro[2] * dt;
-        if (elapsed >= 3000) {
-          stopVibration();
-          resolveAxis(gestureSum, xAxisIndex, xAxisSign);
-          xAxisSign = -xAxisSign;
-          if (xAxisIndex == yAxisIndex)
-            Serial.println("Both axes coincide - Calibration FAILED");
-          calState = CAL_LEFT_WAIT;
-          calStateStartTime = nowMs;
-          axisCalibrated = true;
-        }
-        break;
+      if (elapsed >= 3000) {
+        float d[3] = { 0 };
+        d[0] = readingsAcc[0] - calStartAcc[0];
+        d[1] = readingsAcc[1] - calStartAcc[1];
+        d[2] = readingsAcc[2] - calStartAcc[2];
+        resolveAxis(d, xAxisIndex, xAxisSign);
+        xAxisSign = -xAxisSign;
+        axisCalibrated = true;
+        stopVibration();
+        calState = CAL_LEFT_WAIT;
+        calStateStartTime = nowMs;
       }
+      break;
 
     case CAL_LEFT_WAIT:
       if (elapsed >= 2000) {
         biasSampleCount = 0;
-        biasSumGyro[0] = biasSumGyro[1] = biasSumGyro[2] = 0;
         biasSumAcc[0] = biasSumAcc[1] = biasSumAcc[2] = 0;
         calState = CAL_NEUTRAL_SAMPLE;
         calStateStartTime = nowMs;
@@ -323,33 +304,22 @@ void updateCalibrationStateMachine(unsigned long nowMs) {
       break;
 
     case CAL_NEUTRAL_SAMPLE:
-      if (biasSampleCount < GYRO_BIAS_SAMPLES) {
-        biasSumGyro[0] += readingsGyro[0];
-        biasSumGyro[1] += readingsGyro[1];
-        biasSumGyro[2] += readingsGyro[2];
+      if (biasSampleCount < ACC_BIAS_SAMPLES) {
         biasSumAcc[0] += readingsAcc[0];
         biasSumAcc[1] += readingsAcc[1];
         biasSumAcc[2] += readingsAcc[2];
         biasSampleCount++;
       } else {
-        gyroBias[0] = biasSumGyro[0] / biasSampleCount;
-        gyroBias[1] = biasSumGyro[1] / biasSampleCount;
-        gyroBias[2] = biasSumGyro[2] / biasSampleCount;
-
-        float accBias[3];
-        accBias[0] = biasSumAcc[0] / biasSampleCount;
-        accBias[1] = biasSumAcc[1] / biasSampleCount;
-        accBias[2] = biasSumAcc[2] / biasSampleCount;
-
+        float accBias[3] = { 0 };
+        accBias[0] = biasSumAcc[0] / ACC_BIAS_SAMPLES;
+        accBias[1] = biasSumAcc[1] / ACC_BIAS_SAMPLES;
+        accBias[2] = biasSumAcc[2] / ACC_BIAS_SAMPLES;
         int gravAxis = 3 - xAxisIndex - yAxisIndex;
-        // xAxisIndex = forward axis (nod rotates around this → accelX changes)
-        // yAxisIndex = side axis   (tilt rotates around this → accelY changes)
-        float fwd  = accBias[xAxisIndex] * xAxisSign;
-        float side = accBias[yAxisIndex] * yAxisSign;
+        float fwd = accBias[yAxisIndex] * yAxisSign;
+        float side = accBias[xAxisIndex] * xAxisSign;
         float grav = accBias[gravAxis];
-        neutralPitch = atan2(-fwd,  sqrt(side * side + grav * grav)) * 180.0 / PI;
-        neutralRoll  = atan2(side, sqrt(fwd  * fwd  + grav * grav)) * 180.0 / PI;
-
+        neutralPitch = atan2(-fwd, sqrt(side * side + grav * grav)) * 180.0 / PI;
+        neutralRoll = atan2(side, sqrt(fwd * fwd + grav * grav)) * 180.0 / PI;
         isMPUCalibrated = true;
         calState = CAL_COMPLETE;
 
@@ -369,11 +339,11 @@ void updateCalibrationStateMachine(unsigned long nowMs) {
 
 void getAccelerometerAngles(float &pitch, float &roll) {
   int gravAxis = 3 - xAxisIndex - yAxisIndex;
-  float fwd  = readingsAcc[xAxisIndex] * xAxisSign;
-  float side = readingsAcc[yAxisIndex] * yAxisSign;
+  float fwd = readingsAcc[yAxisIndex] * yAxisSign;
+  float side = readingsAcc[xAxisIndex] * xAxisSign;
   float grav = readingsAcc[gravAxis];
-  pitch = atan2(-fwd,  sqrt(side * side + grav * grav)) * 180.0 / PI;
-  roll  = atan2(side, sqrt(fwd  * fwd  + grav * grav)) * 180.0 / PI;
+  pitch = atan2(-fwd, sqrt(side * side + grav * grav)) * 180.0 / PI;
+  roll = atan2(side, sqrt(fwd * fwd + grav * grav)) * 180.0 / PI;
 }
 
 float mapAngleToMouse(float angle) {
@@ -395,10 +365,10 @@ void updatePrecisionMouse(unsigned long nowMs) {
   getAccelerometerAngles(currentPitch, currentRoll);
 
   float deltaPitch = currentPitch - neutralPitch;
-  float deltaRoll  = currentRoll  - neutralRoll;
+  float deltaRoll = currentRoll - neutralRoll;
 
   if (fabs(deltaPitch) < DEADZONE) deltaPitch = 0;
-  if (fabs(deltaRoll)  < DEADZONE) deltaRoll  = 0;
+  if (fabs(deltaRoll) < DEADZONE) deltaRoll = 0;
 
   float targetVelX = mapAngleToMouse(deltaRoll);
   float targetVelY = mapAngleToMouse(deltaPitch);
@@ -513,9 +483,6 @@ void loop() {
 
     sensors_event_t a, g, temp;
     mpu.getEvent(&a, &g, &temp);
-    readingsGyro[0] = g.gyro.x - gyroBias[0];
-    readingsGyro[1] = g.gyro.y - gyroBias[1];
-    readingsGyro[2] = g.gyro.z - gyroBias[2];
     readingsAcc[0] = a.acceleration.x;
     readingsAcc[1] = a.acceleration.y;
     readingsAcc[2] = a.acceleration.z;
