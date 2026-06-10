@@ -4,16 +4,17 @@ This project turns the Neuro Playground Lite (NPG) into a hands-free joystick-st
 
 ## What It Does
 - **Head Movement → Joystick-Style Cursor Movement:**
-  - The BMI270 sensor (gyro + accelerometer) is attached to the headband and connected to NPG via the Qwiic port.
+  - The BMI270 sensor (gyroscope + accelerometer) is attached to the headband and connected to NPG via the Qwiic port.
+  - Only the accelerometer is used: head tilt angles (pitch and roll) are computed from accelerometer data to drive cursor movement.
   - Tilting your head up/down or left/right moves the cursor continuously. The greater the tilt, the faster it moves. Return your head to neutral to stop.
 - **Blink Detection & jaw clench → Mouse Clicks:**
   - NPG reads single-channel EOG data.
-  - jaw clench triggers a left mouse click.
-  - Triple blinks triggers a right mouse click.
+  - Jaw clench triggers a left mouse click.
+  - Triple blinks trigger a right mouse click.
 
 ## How It Works
 - **Sensors Used:**
-  - **BMI270:** Detects head tilt and orientation for cursor movement.
+  - **BMI270 (accelerometer + gyroscope):** Head tilt angles (pitch and roll) are computed from accelerometer data. The gyroscope is not used.
   - **EEG/Jaw clench/EOG Input:** Detects blinks for mouse clicks.
 - **Joystick-Style Cursor Control:**
   - The code maps head tilt angle to cursor speed, tilt more to move faster, center your head to stop. This is analogous to a joystick rather than a mouse.
@@ -21,7 +22,7 @@ This project turns the Neuro Playground Lite (NPG) into a hands-free joystick-st
 - **Blink Detection:**
   - The EOG signal is filtered and analyzed to detect blinks.
 - **Calibration:**
-  - The headband calibrates itself for neutral position and movement directions using vibration feedback.
+  - The headband calibrates itself for neutral position and axis directions using accelerometer gesture detection and vibration feedback.
 - **BLE Connection:**
   - NPG acts as a Bluetooth mouse and keyboard, allowing wireless control.
 
