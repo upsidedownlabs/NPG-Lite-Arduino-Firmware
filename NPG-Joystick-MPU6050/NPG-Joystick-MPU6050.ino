@@ -287,8 +287,14 @@ void updateCalibrationStateMachine(unsigned long nowMs) {
         d[2] = readingsAcc[2] - calStartAcc[2];
         resolveAxis(d, xAxisIndex, xAxisSign);
         xAxisSign = -xAxisSign;
-        axisCalibrated = true;
         stopVibration();
+        if (xAxisIndex == yAxisIndex) {
+          calState = CAL_LEFT_WAIT;
+          calStateStartTime = nowMs;
+          startVibration();
+          break;
+        }
+        axisCalibrated = true;
         calState = CAL_LEFT_WAIT;
         calStateStartTime = nowMs;
       }

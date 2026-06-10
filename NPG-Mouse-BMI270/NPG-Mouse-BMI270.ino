@@ -467,9 +467,15 @@ void updateCalibrationStateMachine(unsigned long nowMs) {
           xAxisSign = -xAxisSign;
           debugPrintValue("X axis index", xAxisIndex);
           debugPrintValue("X axis sign", xAxisSign);
-          if (xAxisIndex == yAxisIndex)
-            debugPrint("Both axes coincide - Calibration FAILED");
-
+          if (xAxisIndex == yAxisIndex) {
+            debugPrint("Both axes coincide - Calibration FAILED, retrying");
+            gestureSum[0] = gestureSum[1] = gestureSum[2] = 0;
+            lastGyroMicros = micros();
+            calState = CAL_LEFT_WAIT;
+            calStateStartTime = nowMs;
+            startVibration();
+            break;
+          }
           calState = CAL_LEFT_WAIT;
           calStateStartTime = nowMs;
           axisCalibrated = true;

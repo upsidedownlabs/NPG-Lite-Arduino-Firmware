@@ -369,8 +369,14 @@ void updateCalibrationStateMachine(unsigned long nowMs) {
         d[2] = imu.data.accelZ - calStartAcc[2];
         resolveAxis(d, xAxisIndex, xAxisSign);
         xAxisSign = -xAxisSign;  // Invert X axis to match natural head movement
-        axisCalibrated = true;
         stopVibration();
+        if (xAxisIndex == yAxisIndex) {
+          calState = CAL_LEFT_WAIT;
+          calStateStartTime = nowMs;
+          startVibration();
+          break;
+        }
+        axisCalibrated = true;
         calState = CAL_LEFT_WAIT;
         calStateStartTime = nowMs;
       }
