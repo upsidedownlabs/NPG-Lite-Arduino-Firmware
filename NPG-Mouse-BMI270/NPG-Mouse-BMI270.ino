@@ -23,7 +23,7 @@
 #include <BleCombo.h>
 #include <Adafruit_NeoPixel.h>
 
-// ── BMI270 Includes (with Accelerometer) ──
+// ── BMI270 Includes ──
 #include <SparkFun_BMI270_Arduino_Library.h>
 
 #define PIXEL_PIN 15
@@ -38,7 +38,7 @@ uint32_t imuAddress = 0x68;
 // ══════════════════════════════════════════════════════════════════════════════
 // ─── CONTROL MAPPING CONFIGURATION ───
 // ══════════════════════════════════════════════════════════════════════════════
-// Head movement (accelerometer) -> Mouse cursor movement (POSITION HOLD)
+// Head movement (gyro rate) -> Mouse cursor movement
 // Jaw Clench -> Left mouse click
 // Triple blink -> Right mouse click
 
@@ -82,7 +82,7 @@ uint32_t imuAddress = 0x68;
 // ── DEBUG ENABLE ──
 #define DEBUG_ENABLE 1  // Set to 1 to enable debug prints, 0 to disable
 
-// ─── BMI270 Variables (using Accelerometer) ───
+// ─── BMI270 ───
 BMI270 imu;
 
 // Mouse control variables (gyro rate based)
@@ -433,7 +433,7 @@ void updateCalibrationStateMachine(unsigned long nowMs) {
             debugPrint("Both axes coincide - Calibration FAILED, retrying");
             gestureSum[0] = gestureSum[1] = gestureSum[2] = 0;
             lastGyroMicros = micros();
-            calState = CAL_LEFT_VIBRATE;
+            calState = CAL_LEFT_WAIT;
             calStateStartTime = nowMs;
             startVibration();
             break;
@@ -764,11 +764,9 @@ void setup() {
 
   pinMode(INPUT_PIN1, INPUT);
   pinMode(VIBRATION_PIN, OUTPUT);
-
   digitalWrite(VIBRATION_PIN, LOW);
   debugPrint("Pins initialized");
 
-  debugPrint("Initializing BLE Combo...");
   Keyboard.begin();
   Mouse.begin();
   debugPrint("BLE Combo initialized");
@@ -885,20 +883,16 @@ void loop() {
     // NON-BLOCKING CALIBRATION UPDATE
     updateCalibrationStateMachine(nowMs);
 
-    // 1) EEG ADC read - only one channel
     int raw1 = analogRead(INPUT_PIN1);
     batteryWinSum += analogRead(BATTERY_VOLTAGE_PIN);
     batteryWinCount++;
 
-    // 2) Apply notch filter (50Hz removal)
     float notchFiltered = eegNotchFilter.process(raw1);
 
-    // 3) Process for blink detection (low frequency)
     float filteredEEG = eegFilter.process(notchFiltered);
     float filteredEOG = eogFilter.process(filteredEEG);
     currentEEGEnvelope = updateEEGEnvelope(filteredEOG);
 
-    // 4) Process for jaw clench detection (high frequency - 70Hz HPF)
     float jawFiltered = jawHighPassFilter.process(notchFiltered);
     currentJawEnvelope = updateJawEnvelope(jawFiltered);
 
