@@ -1,43 +1,42 @@
-# NPG-Mouse: Neuro Playground Lite Mouse Control
+# NPG-Joystick: Neuro Playground Lite Joystick-style Mouse Control
 
-This project turns the Neuro Playground Lite (NPG) into a hands-free mouse controller using a headband. It combines EEG/EOG blink detection and head movement sensing for intuitive computer control.
+This project turns the Neuro Playground Lite (NPG) into a hands-free joystick-style mouse controller using a headband. It combines EEG/Jaw clench/EOG blink detection and head movement sensing for intuitive computer control.
 
 ## **[How to Use](#how-to-use)**
 
 ## What It Does
-- **Head Movement → Mouse Movement:**
-  - The MPU6050 sensor (gyro + accelerometer) is attached to the headband and connected to NPG via the Qwiic port.
-  - Moving your head up/down or left/right moves the cursor by a fixed amount. Cursor displacement is directly proportional to how much you move your head, and stops when your head stops (unlike joystick where the cursor moves continuously based on tilt angle).
-  - This project uses only gyroscope of sensor.
-- **Blink Detection → Mouse Clicks:**
+- **Head Movement → Joystick-Style Cursor Movement:**
+  - The BMI270 sensor (gyroscope + accelerometer) is attached to the headband and connected to NPG via the Qwiic port.
+  - Only the accelerometer is used: head tilt angles (pitch and roll) are computed from accelerometer data to drive cursor movement.
+  - Tilting your head up/down or left/right moves the cursor continuously. The greater the tilt, the faster it moves. Return your head to neutral to stop.
+- **Blink Detection & jaw clench → Mouse Clicks:**
   - NPG reads single-channel EOG data.
-  - Double blinks trigger a left mouse click.
+  - Jaw clench triggers a left mouse click.
   - Triple blinks trigger a right mouse click.
 
 ## How It Works
 - **Sensors Used:**
-  - **MPU6050:** Detects head tilt and orientation for cursor movement.
-  - **EEG/EOG Input:** Detects blinks for mouse clicks.
-- **Mouse Control:**
-  - The code processes head tilt angles and translates them into smooth mouse movements.
+  - **BMI270 (accelerometer + gyroscope):** Head tilt angles (pitch and roll) are computed from accelerometer data. The gyroscope is not used.
+  - **EEG/Jaw clench/EOG Input:** Detects blinks for mouse clicks.
+- **Joystick-Style Cursor Control:**
+  - The code maps head tilt angle to cursor speed, tilt more to move faster, center your head to stop. This is analogous to a joystick rather than a mouse.
   - Sensitivity, deadzone, and acceleration are adjustable for comfort and precision.
 - **Blink Detection:**
   - The EOG signal is filtered and analyzed to detect blinks.
-  - Timing logic distinguishes between double and triple blinks for different mouse clicks.
 - **Calibration:**
-  - The headband calibrates itself for neutral position and movement directions using vibration feedback.
+  - The headband calibrates itself for neutral position and axis directions using accelerometer gesture detection and vibration feedback.
 - **BLE Connection:**
   - NPG acts as a Bluetooth mouse and keyboard, allowing wireless control.
 
 ## How To Use
-1. Attach the NPG and MPU6050 to a headband.
-2. Connect the MPU6050 to NPG via the Qwiic port.
+1. Attach the NPG and BMI270 to a headband.
+2. Connect the BMI270 to NPG via the Qwiic port.
 3. Install the `BleCombo.h` library using the [Library Installation](#library-installation) section below for instructions.
 4. Compile and upload the sketch to your NPG Lite board.
 5. Wear the headband and power on NPG.
 6. Calibrate by following the vibration feedback.
-7. Move your head to control the mouse cursor.
-8. Blink twice for a left click and three times for a right click.
+7. Tilt your head to move the cursor. More tilt means faster movement; center to stop.
+8. Jaw clench for a left click and blink three times for a right click.
 
 ## Library Installation
 
