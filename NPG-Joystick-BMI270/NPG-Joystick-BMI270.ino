@@ -73,9 +73,6 @@ uint32_t imuAddress = 0x68;
 // ── VIBRATION MOTOR PIN ──
 #define VIBRATION_PIN 7  // Vibration motor for calibration feedback
 
-// ── DEBUG ENABLE ──
-#define DEBUG_ENABLE 1  // Set to 1 to enable debug prints, 0 to disable
-
 // ─── BMI270 Variables (using Accelerometer) ───
 BMI270 imu;
 
@@ -182,27 +179,6 @@ const int percentLUT[] = {
   50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100
 };
 const int lutSize = sizeof(voltageLUT) / sizeof(voltageLUT[0]);
-
-// ─── DEBUG FUNCTION ───
-void debugPrint(const char *message) {
-#if DEBUG_ENABLE
-  Serial.println(message);
-#endif
-}
-
-void debugPrint(String message) {
-#if DEBUG_ENABLE
-  Serial.println(message);
-#endif
-}
-
-void debugPrintValue(const char *label, float value) {
-#if DEBUG_ENABLE
-  Serial.print(label);
-  Serial.print(": ");
-  Serial.println(value);
-#endif
-}
 
 // ─── FILTERS ───
 // Band-Stop Butterworth IIR digital filter (50Hz notch)
@@ -335,12 +311,10 @@ float updateJawEnvelope(float sample) {
 // ─── VIBRATION FEEDBACK FUNCTIONS ───
 void startVibration() {
   digitalWrite(VIBRATION_PIN, HIGH);
-  debugPrint("Vibration ON");
 }
 
 void stopVibration() {
   digitalWrite(VIBRATION_PIN, LOW);
-  debugPrint("Vibration OFF");
 }
 
 // Pick dominant axis from an accumulated gesture vector
@@ -374,6 +348,7 @@ void updateCalibrationStateMachine(unsigned long nowMs) {
         calState = CAL_UP_VIBRATE;
         calStateStartTime = nowMs;
         startVibration();
+        Serial.println("Calibrate: move head UP");
       }
       break;
 
@@ -399,6 +374,7 @@ void updateCalibrationStateMachine(unsigned long nowMs) {
         calState = CAL_LEFT_VIBRATE;
         calStateStartTime = nowMs;
         startVibration();
+        Serial.println("Calibrate: move head LEFT");
       }
       break;
 
@@ -412,7 +388,8 @@ void updateCalibrationStateMachine(unsigned long nowMs) {
         xAxisSign = -xAxisSign;  // Invert X axis to match natural head movement
         stopVibration();
         if (xAxisIndex == yAxisIndex) {
-          calState = CAL_LEFT_WAIT;
+          Serial.println("Calibration failed, retrying");
+          calState = CAL_INIT_WAIT;
           calStateStartTime = nowMs;
           startVibration();
           break;
@@ -454,6 +431,7 @@ void updateCalibrationStateMachine(unsigned long nowMs) {
         neutralRoll = atan2(side, sqrt(fwd * fwd + grav * grav)) * 180.0 / PI;
         isIMUCalibrated = true;
         calState = CAL_COMPLETE;
+        Serial.println("Calibration complete");
 
         // Give completion feedback (3 short vibrations)
         for (int i = 0; i < 3; i++) {
@@ -490,13 +468,6 @@ void updatePrecisionMouse(unsigned long nowMs) {
 
   float deltaPitch = currentPitch - neutralPitch;
   float deltaRoll = currentRoll - neutralRoll;
-
-#if DEBUG_ENABLE
-  Serial.print("dP: ");
-  Serial.print(deltaPitch);
-  Serial.print(" dR: ");
-  Serial.println(deltaRoll);
-#endif
 
   if (fabs(deltaPitch) < DEADZONE) deltaPitch = 0;
   if (fabs(deltaRoll) < DEADZONE) deltaRoll = 0;
@@ -544,9 +515,9 @@ void handleJawClench(unsigned long nowMs) {
       Mouse.click(MOUSE_LEFT);
       lastCmdSentMs = millis();
       ledState = LED_BLUE_FADE;
+      Serial.println("Left click");
 
       jawClenchTriggered = true;
-      debugPrint("Jaw clench - Left click!");
       startVibration();
       delay(50);
       stopVibration();
@@ -566,22 +537,19 @@ void handleBlinks(unsigned long nowMs) {
     if (blinkCount == 0) {
       firstBlinkTime = nowMs;
       blinkCount = 1;
-      debugPrint("First blink detected");
     } else if (blinkCount == 1 && (nowMs - firstBlinkTime) <= DOUBLE_BLINK_MS) {
       secondBlinkTime = nowMs;
       blinkCount = 2;
-      debugPrint("Second blink detected");
     } else if (blinkCount == 2 && (nowMs - secondBlinkTime) <= triple_blink_ms) {
       Mouse.click(MOUSE_RIGHT);
       lastCmdSentMs = millis();
       ledState = LED_BLUE_FADE;
+      Serial.println("Right click");
 
       blinkCount = 0;
-      debugPrint("Triple blink - Right click!");
     } else {
       firstBlinkTime = nowMs;
       blinkCount = 1;
-      debugPrint("Blink timeout - resetting");
     }
     blinkActive = true;
   }
@@ -592,7 +560,6 @@ void handleBlinks(unsigned long nowMs) {
 
   if (blinkCount == 2 && (nowMs - secondBlinkTime) > triple_blink_ms) {
     blinkCount = 0;
-    debugPrint("Double blink timeout - no action");
   }
   if (blinkCount == 1 && (nowMs - firstBlinkTime) > DOUBLE_BLINK_MS) {
     blinkCount = 0;
@@ -673,6 +640,7 @@ void updateBLELed() {
 // ─── setup() ───
 void setup() {
   Serial.begin(115200);
+  Serial.println("NPG Joystick BMI270 starting");
   delay(2000);
 
   pixel.begin();
@@ -686,11 +654,17 @@ void setup() {
     batteryColor = pixel.Color(0, 20, 0);
   }
   pixel.setPixelColor(BATTERY_LED, batteryColor);
+  Serial.print("Battery: ");
+  Serial.print(currentBattery);
+  Serial.println("%");
 
   Wire.begin(22, 23);
   while (imu.beginI2C() != BMI2_OK) {
-    debugPrint("BMI270 initialization FAILED!");
-
+    static bool imuFailLogged = false;
+    if (!imuFailLogged) {
+      Serial.println("IMU init failed, check connection");
+      imuFailLogged = true;
+    }
     static uint16_t fader = 100;
     static bool decreasing = true;
     pixel.setPixelColor(IMU_LED, pixel.Color(fader, 0, 0));
@@ -709,17 +683,13 @@ void setup() {
     }
   }
 
-  debugPrint("System Starting...");
-
   pinMode(INPUT_PIN1, INPUT);
   pinMode(VIBRATION_PIN, OUTPUT);
   digitalWrite(VIBRATION_PIN, LOW);
 
   Keyboard.begin();
   Mouse.begin();
-  debugPrint("BLE Combo initialized");
-
-  debugPrint("BMI270 initialized successfully!");
+  Serial.println("BLE ready, waiting for connection");
 
   updateIMULed(true);
 
@@ -732,7 +702,7 @@ void setup() {
 
   calState = CAL_INIT_WAIT;
   calStateStartTime = millis();
-  debugPrint("Calibration started - Keep head still for 3 seconds");
+  Serial.println("Calibration started, keep head still");
 }
 
 // ─── loop() ───
@@ -743,6 +713,7 @@ void loop() {
     lastConnected = connected;
     ledState = connected ? LED_GREEN : LED_RED;
     pixelDirty = true;
+    Serial.println(connected ? "BLE connected" : "BLE disconnected");
   }
   bool imuConnect;
   Wire.beginTransmission(imuAddress);
@@ -774,16 +745,16 @@ void loop() {
       eogFilter.reset();
       jawHighPassFilter.reset();
       eegFilter.reset();
-      debugPrint("IMU disconnected - calibration invalidated");
+      Serial.println("IMU disconnected");
     } else {
       // ── IMU just RECONNECTED ──
       // Re-init the IMU hardware
       if (imu.beginI2C() == BMI2_OK) {
-        debugPrint("IMU reconnected - restarting calibration");
+        Serial.println("IMU reconnected");
         calState = CAL_INIT_WAIT;
         calStateStartTime = millis();
       } else {
-        debugPrint("IMU reconnected but beginI2C() failed");
+        Serial.println("IMU reconnect failed");
       }
     }
   }
@@ -844,56 +815,10 @@ void loop() {
 
     handleJawClench(nowMs);
     handleBlinks(nowMs);
-
-// Print envelopes occasionally
-#if DEBUG_ENABLE
-    static int eegCounter = 0;
-    if (eegCounter++ % 100 == 0) {
-      Serial.print("EEG Envelope: ");
-      Serial.print(currentEEGEnvelope);
-      Serial.print(" | Jaw Envelope: ");
-      Serial.print(currentJawEnvelope);
-      Serial.print(" | Thresholds - Blink: ");
-      Serial.print(BlinkThreshold);
-      Serial.print(", Jaw: ");
-      Serial.println(JAW_THRESHOLD);
-    }
-#endif
   }
 
   // 4) PRECISION MOUSE CONTROL (ACCELEROMETER BASED) - runs continuously
   if (connected) {
     updatePrecisionMouse(millis());
   }
-
-// Print status every 5 seconds
-#if DEBUG_ENABLE
-  static unsigned long lastStatusPrint = 0;
-  if (millis() - lastStatusPrint > 5000) {
-    lastStatusPrint = millis();
-    Serial.println("═══════════════════════════════════");
-    Serial.print("BLE Connected: ");
-    Serial.println(Keyboard.isConnected() ? "YES" : "NO");
-    Serial.print("IMU Calibrated: ");
-    Serial.println(isIMUCalibrated ? "YES" : "NO");
-    Serial.print("Axis Calibrated: ");
-    Serial.println(axisCalibrated ? "YES" : "NO");
-    Serial.print("Neutral - Pitch: ");
-    Serial.print(neutralPitch);
-    Serial.print(", Roll: ");
-    Serial.println(neutralRoll);
-    Serial.print("Calibration State: ");
-    switch (calState) {
-      case CAL_IDLE: Serial.println("IDLE"); break;
-      case CAL_INIT_WAIT: Serial.println("INIT_WAIT"); break;
-      case CAL_UP_VIBRATE: Serial.println("UP_VIBRATE"); break;
-      case CAL_UP_WAIT: Serial.println("UP_WAIT"); break;
-      case CAL_LEFT_VIBRATE: Serial.println("LEFT_VIBRATE"); break;
-      case CAL_LEFT_WAIT: Serial.println("LEFT_WAIT"); break;
-      case CAL_NEUTRAL_SAMPLE: Serial.println("NEUTRAL_SAMPLE"); break;
-      case CAL_COMPLETE: Serial.println("COMPLETE"); break;
-    }
-    Serial.println("═══════════════════════════════════");
-  }
-#endif
 }

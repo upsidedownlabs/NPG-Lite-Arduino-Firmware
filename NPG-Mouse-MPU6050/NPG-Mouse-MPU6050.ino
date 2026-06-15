@@ -78,9 +78,6 @@ Adafruit_NeoPixel pixel(6, PIN_NEOPIXEL, NEO_GRB + NEO_KHZ800);
 #define BATTERY_LED 5
 #define IMU_LED 3
 
-// ── DEBUG ENABLE ──
-#define DEBUG_ENABLE 1  // Set to 1 to enable debug prints, 0 to disable
-
 // ─── MPU6050 ───
 Adafruit_MPU6050 mpu;
 uint32_t mpuAddress = 0x68;
@@ -153,27 +150,6 @@ int envelopeIndex = 0;
 float envelopeSum = 0;
 float currentEEGEnvelope = 0;
 float BlinkThreshold = 150.0;
-
-// ─── DEBUG FUNCTIONS ───
-void debugPrint(const char *message) {
-#if DEBUG_ENABLE
-  Serial.println(message);
-#endif
-}
-
-void debugPrint(String message) {
-#if DEBUG_ENABLE
-  Serial.println(message);
-#endif
-}
-
-void debugPrintValue(const char *label, float value) {
-#if DEBUG_ENABLE
-  Serial.print(label);
-  Serial.print(": ");
-  Serial.println(value);
-#endif
-}
 
 // ─── FILTERS ───
 // Band-Stop Butterworth IIR digital filter (50Hz notch)
@@ -270,12 +246,10 @@ float updateEEGEnvelope(float sample) {
 // ─── VIBRATION FEEDBACK FUNCTIONS ───
 void startVibration() {
   digitalWrite(VIBRATION_PIN, HIGH);
-  debugPrint("Vibration ON");
 }
 
 void stopVibration() {
   digitalWrite(VIBRATION_PIN, LOW);
-  debugPrint("Vibration OFF");
 }
 
 // Pick dominant axis from an accumulated gesture vector
@@ -314,6 +288,7 @@ void updateCalibrationStateMachine(unsigned long nowMs) {
         calState = CAL_UP_VIBRATE;
         calStateStartTime = nowMs;
         startVibration();
+        Serial.println("Calibrate: move head UP");
       }
       break;
 
@@ -332,8 +307,6 @@ void updateCalibrationStateMachine(unsigned long nowMs) {
           stopVibration();
           resolveAxis(gestureSum, yAxisIndex, yAxisSign);
           yAxisSign = -yAxisSign;
-          debugPrintValue("Y axis index", yAxisIndex);
-          debugPrintValue("Y axis sign", yAxisSign);
           calState = CAL_UP_WAIT;
           calStateStartTime = nowMs;
         }
@@ -347,6 +320,7 @@ void updateCalibrationStateMachine(unsigned long nowMs) {
         calState = CAL_LEFT_VIBRATE;
         calStateStartTime = nowMs;
         startVibration();
+        Serial.println("Calibrate: move head LEFT");
       }
       break;
 
@@ -365,13 +339,11 @@ void updateCalibrationStateMachine(unsigned long nowMs) {
           stopVibration();
           resolveAxis(gestureSum, xAxisIndex, xAxisSign);
           xAxisSign = -xAxisSign;
-          debugPrintValue("X axis index", xAxisIndex);
-          debugPrintValue("X axis sign", xAxisSign);
           if (xAxisIndex == yAxisIndex) {
-            debugPrint("Both axes coincide - Calibration FAILED, retrying");
+            Serial.println("Calibration failed, retrying");
             gestureSum[0] = gestureSum[1] = gestureSum[2] = 0;
             lastGyroMicros = micros();
-            calState = CAL_LEFT_WAIT;
+            calState = CAL_INIT_WAIT;
             calStateStartTime = nowMs;
             startVibration();
             break;
@@ -379,7 +351,6 @@ void updateCalibrationStateMachine(unsigned long nowMs) {
           calState = CAL_LEFT_WAIT;
           calStateStartTime = nowMs;
           axisCalibrated = true;
-          debugPrint("Axis Calibrated = TRUE");
         }
         break;
       }
@@ -390,7 +361,6 @@ void updateCalibrationStateMachine(unsigned long nowMs) {
         biasSum[0] = biasSum[1] = biasSum[2] = 0;
         calState = CAL_NEUTRAL_SAMPLE;
         calStateStartTime = nowMs;
-        debugPrint("LEFT_WAIT complete, moving to NEUTRAL_SAMPLE");
       }
       break;
 
@@ -403,8 +373,6 @@ void updateCalibrationStateMachine(unsigned long nowMs) {
         biasSum[2] += g.gyro.z * RAD_TO_DEG;
         biasSampleCount++;
 
-        if (biasSampleCount % 20 == 0)
-          debugPrintValue("Bias sample count", biasSampleCount);
       } else {
         gyroBias[0] = biasSum[0] / biasSampleCount;
         gyroBias[1] = biasSum[1] / biasSampleCount;
@@ -412,6 +380,7 @@ void updateCalibrationStateMachine(unsigned long nowMs) {
         smoothRateX = smoothRateY = 0;
         isIMUCalibrated = true;
         calState = CAL_COMPLETE;
+        Serial.println("Calibration complete");
 
         for (int i = 0; i < 3; i++) {
           startVibration();
@@ -446,13 +415,6 @@ float mapRateToMouse(float rate) {
 
 void updatePrecisionMouse(unsigned long nowMs) {
   if (!isIMUCalibrated || !axisCalibrated) {
-#if DEBUG_ENABLE
-    static bool lastPrintState = false;
-    if (!isIMUCalibrated && !lastPrintState) {
-      debugPrint("Waiting for calibration...");
-      lastPrintState = true;
-    }
-#endif
     return;
   }
 
@@ -495,11 +457,6 @@ void updatePrecisionMouse(unsigned long nowMs) {
     Mouse.move(finalMouseX, finalMouseY);
     lastCmdSentMs = millis();
     ledState = LED_BLUE_FADE;
-#if DEBUG_ENABLE
-    Serial.print(finalMouseX);
-    Serial.print(" , ");
-    Serial.println(finalMouseY);
-#endif
   }
 }
 
@@ -572,12 +529,14 @@ void handleBlinks(unsigned long nowMs) {
       Mouse.click(MOUSE_LEFT);
       lastCmdSentMs = millis();
       ledState = LED_BLUE_FADE;
+      Serial.println("Left click");
       secondBlinkTime = nowMs;
       blinkCount = 2;
     } else if (blinkCount == 2 && (nowMs - secondBlinkTime) <= triple_blink_ms) {
       Mouse.click(MOUSE_RIGHT);
       lastCmdSentMs = millis();
       ledState = LED_BLUE_FADE;
+      Serial.println("Right click");
       blinkCount = 0;
     } else {
       firstBlinkTime = nowMs;
@@ -638,6 +597,7 @@ void updateBLELed() {
 // ─── setup() ───
 void setup() {
   Serial.begin(115200);
+  Serial.println("NPG Mouse MPU6050 starting");
   pixel.begin();
   pixel.clear();
   pixel.show();
@@ -653,9 +613,16 @@ void setup() {
     batteryColor = pixel.Color(0, 20, 0);
   }
   pixel.setPixelColor(BATTERY_LED, batteryColor);
+  Serial.print("Battery: ");
+  Serial.print(currentBattery);
+  Serial.println("%");
 
   while (!mpu.begin()) {
-    Serial.println("MPU6050 initialization FAILED!");
+    static bool imuFailLogged = false;
+    if (!imuFailLogged) {
+      Serial.println("IMU init failed, check connection");
+      imuFailLogged = true;
+    }
     static uint16_t fader = 100;
     static bool decreasing = true;
     pixel.setPixelColor(IMU_LED, pixel.Color(fader, 0, 0));
@@ -682,14 +649,15 @@ void setup() {
   // START NON-BLOCKING CALIBRATION
   calState = CAL_INIT_WAIT;
   calStateStartTime = millis();
+  Serial.println("Calibration started, keep head still");
 
   pinMode(INPUT_PIN1, INPUT);
   pinMode(VIBRATION_PIN, OUTPUT);
   digitalWrite(VIBRATION_PIN, LOW);
-  debugPrint("Pins initialized");
 
   Keyboard.begin();
   Mouse.begin();
+  Serial.println("BLE ready, waiting for connection");
 }
 
 // ─── loop() ───
@@ -700,6 +668,7 @@ void loop() {
     lastConnected = connected;
     ledState = connected ? LED_GREEN : LED_RED;
     pixelDirty = true;
+    Serial.println(connected ? "BLE connected" : "BLE disconnected");
   }
 
   Wire.beginTransmission(mpuAddress);
@@ -726,17 +695,17 @@ void loop() {
       eegNotchFilter.reset();
       eogFilter.reset();
       eegFilter.reset();
-      Serial.print("MPU disconnected - calibration invalidated");
+      Serial.println("IMU disconnected");
     } else {
       if (mpu.begin()) {
         mpu.setAccelerometerRange(MPU6050_RANGE_2_G);
         mpu.setGyroRange(MPU6050_RANGE_250_DEG);
         mpu.setFilterBandwidth(MPU6050_BAND_21_HZ);
-        Serial.print("MPU reconnected - restarting calibration");
+        Serial.println("IMU reconnected");
         calState = CAL_INIT_WAIT;
         calStateStartTime = millis();
       } else {
-        Serial.print("MPU reconnected but beginI2C() failed");
+        Serial.println("IMU reconnect failed");
       }
     }
   }
@@ -771,16 +740,6 @@ void loop() {
     currentEEGEnvelope = updateEEGEnvelope(filteredEOG);
 
     handleBlinks(nowMs);
-
-#if DEBUG_ENABLE
-    Serial.print(currentEEGEnvelope);
-    static int eegCounter = 0;
-    if (eegCounter++ % 100 == 0) {
-      Serial.print("EEG Envelope: ");
-      Serial.print(" | Threshold: ");
-      Serial.println(BlinkThreshold);
-    }
-#endif
   }
 
   // 4) PRECISION MOUSE CONTROL - runs continuously

@@ -292,6 +292,7 @@ void updateCalibrationStateMachine(unsigned long nowMs) {
         calState = CAL_UP_VIBRATE;
         calStateStartTime = nowMs;
         startVibration();
+        Serial.println("Calibrate: move head UP");
       }
       break;
 
@@ -316,6 +317,7 @@ void updateCalibrationStateMachine(unsigned long nowMs) {
         calState = CAL_LEFT_VIBRATE;
         calStateStartTime = nowMs;
         startVibration();
+        Serial.println("Calibrate: move head LEFT");
       }
       break;
 
@@ -329,7 +331,8 @@ void updateCalibrationStateMachine(unsigned long nowMs) {
         xAxisSign = -xAxisSign;
         stopVibration();
         if (xAxisIndex == yAxisIndex) {
-          calState = CAL_LEFT_WAIT;
+          Serial.println("Calibration failed, retrying");
+          calState = CAL_INIT_WAIT;
           calStateStartTime = nowMs;
           startVibration();
           break;
@@ -368,6 +371,7 @@ void updateCalibrationStateMachine(unsigned long nowMs) {
         neutralRoll = atan2(side, sqrt(fwd * fwd + grav * grav)) * 180.0 / PI;
         isMPUCalibrated = true;
         calState = CAL_COMPLETE;
+        Serial.println("Calibration complete");
 
         for (int i = 0; i < 3; i++) {
           startVibration();
@@ -459,6 +463,7 @@ void handleBlinks(unsigned long nowMs) {
       blinkCount = 2;
     } else if (blinkCount == 2 && (nowMs - secondBlinkTime) <= triple_blink_ms) {
       Mouse.click(MOUSE_RIGHT);
+      Serial.println("Right click");
       if (Keyboard.isConnected()) {
         lastCmdSentMs = millis();
         ledState = LED_BLUE_FADE;
@@ -478,6 +483,7 @@ void handleBlinks(unsigned long nowMs) {
   // Double blink timeout -> Left mouse click
   if (blinkCount == 2 && (nowMs - secondBlinkTime) > triple_blink_ms) {
     Mouse.click(MOUSE_LEFT);
+    Serial.println("Left click");
     if (Keyboard.isConnected()) {
       lastCmdSentMs = millis();
       ledState = LED_BLUE_FADE;
@@ -565,6 +571,7 @@ void updateBLELed() {
 // ─── setup() ───
 void setup() {
   Serial.begin(115200);
+  Serial.println("NPG Joystick MPU6050 starting");
   delay(2000);
 
   pixel.begin();
@@ -582,9 +589,16 @@ void setup() {
     batteryColor = pixel.Color(0, 20, 0);
   }
   pixel.setPixelColor(BATTERY_LED, batteryColor);
+  Serial.print("Battery: ");
+  Serial.print(currentBattery);
+  Serial.println("%");
 
   while (!mpu.begin()) {
-    Serial.println("MPU6050 initialization FAILED!");
+    static bool imuFailLogged = false;
+    if (!imuFailLogged) {
+      Serial.println("IMU init failed, check connection");
+      imuFailLogged = true;
+    }
     static uint16_t fader = 100;
     static bool decreasing = true;
     pixel.setPixelColor(IMU_LED, pixel.Color(fader, 0, 0));
@@ -613,6 +627,7 @@ void setup() {
 
   Keyboard.begin();
   Mouse.begin();
+  Serial.println("BLE ready, waiting for connection");
 
   for (int i = 0; i < 2; i++) {
     startVibration();
@@ -623,6 +638,7 @@ void setup() {
 
   calState = CAL_INIT_WAIT;
   calStateStartTime = millis();
+  Serial.println("Calibration started, keep head still");
 }
 
 // ─── loop() ───
@@ -633,6 +649,7 @@ void loop() {
     lastConnected = connected;
     ledState = connected ? LED_GREEN : LED_RED;
     pixelDirty = true;
+    Serial.println(connected ? "BLE connected" : "BLE disconnected");
   }
 
   Wire.beginTransmission(mpuAddress);
@@ -661,7 +678,7 @@ void loop() {
       eegNotchFilter.reset();
       eogFilter.reset();
       eegFilter.reset();
-      Serial.println("MPU disconnected - calibration invalidated");
+      Serial.println("IMU disconnected");
     } else {
       // ── IMU just RECONNECTED ──
       // Re-init the IMU hardware
@@ -669,11 +686,11 @@ void loop() {
         mpu.setAccelerometerRange(MPU6050_RANGE_2_G);
         mpu.setGyroRange(MPU6050_RANGE_250_DEG);
         mpu.setFilterBandwidth(MPU6050_BAND_21_HZ);
-        Serial.println("MPU reconnected - restarting calibration");
+        Serial.println("IMU reconnected");
         calState = CAL_INIT_WAIT;
         calStateStartTime = millis();
       } else {
-        Serial.println("MPU reconnected but begin() failed");
+        Serial.println("IMU reconnect failed");
       }
     }
   }
