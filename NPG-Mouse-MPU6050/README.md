@@ -16,10 +16,10 @@ This project turns the Neuro Playground Lite (NPG) into a hands-free mouse contr
 
 ## How It Works
 - **Sensors Used:**
-  - **MPU6050:** Detects head tilt and orientation for cursor movement.
+  - **MPU6050:** Measures head angular velocity (gyroscope rates) for cursor movement.
   - **EEG/EOG Input:** Detects blinks for mouse clicks.
 - **Mouse Control:**
-  - The code processes head tilt angles and translates them into smooth mouse movements.
+  - The code reads gyroscope rates (angular velocities) and converts them into smooth cursor movements.
   - Sensitivity, deadzone, and acceleration are adjustable for comfort and precision.
 - **Blink Detection:**
   - The EOG signal is filtered and analyzed to detect blinks.

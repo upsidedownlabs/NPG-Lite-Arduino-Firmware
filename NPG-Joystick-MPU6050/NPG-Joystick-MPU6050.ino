@@ -464,10 +464,8 @@ void handleBlinks(unsigned long nowMs) {
     } else if (blinkCount == 2 && (nowMs - secondBlinkTime) <= triple_blink_ms) {
       Mouse.click(MOUSE_RIGHT);
       Serial.println("Right click");
-      if (Keyboard.isConnected()) {
-        lastCmdSentMs = millis();
-        ledState = LED_BLUE_FADE;
-      }
+      lastCmdSentMs = millis();
+      ledState = LED_BLUE_FADE;
       blinkCount = 0;
     } else {
       firstBlinkTime = nowMs;
@@ -484,10 +482,8 @@ void handleBlinks(unsigned long nowMs) {
   if (blinkCount == 2 && (nowMs - secondBlinkTime) > triple_blink_ms) {
     Mouse.click(MOUSE_LEFT);
     Serial.println("Left click");
-    if (Keyboard.isConnected()) {
-      lastCmdSentMs = millis();
-      ledState = LED_BLUE_FADE;
-    }
+    lastCmdSentMs = millis();
+    ledState = LED_BLUE_FADE;
     blinkCount = 0;
   }
   // Single blink timeout
