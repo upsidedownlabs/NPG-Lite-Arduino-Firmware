@@ -16,28 +16,24 @@
 // Copyright (c) 2025 Deepak Khatri - deepak@upsidedownlabs.tech
 // Copyright (c) 2025 Upside Down Labs - contact@upsidedownlabs.tech
 
+// At Upside Down Labs, we create open-source DIY neuroscience hardware and software.
+// Our mission is to make neuroscience affordable and accessible for everyone.
+// By supporting us with your purchase, you help spread innovation and open science.
+// Thank you for being part of this journey with us!
+
 // Core includes
 #include <Arduino.h>
+#include <Adafruit_NeoPixel.h>
 #include <Wire.h>
 #include <BleCombo.h>
-#include <Adafruit_NeoPixel.h>
 
 // ── BMI270 Includes ──
 #include <SparkFun_BMI270_Arduino_Library.h>
 
-#define PIXEL_PIN 15
-#define PIXEL_COUNT 6
-Adafruit_NeoPixel pixel(PIXEL_COUNT, PIXEL_PIN, NEO_GRB + NEO_KHZ800);
-#define BLE_LED 0
-#define BATTERY_LED 5
-#define IMU_LED 3
-#define BLUE_LED_DURATION 100
-uint32_t imuAddress = 0x68;
-
 // ══════════════════════════════════════════════════════════════════════════════
 // ─── CONTROL MAPPING CONFIGURATION ───
 // ══════════════════════════════════════════════════════════════════════════════
-// Head movement (accelerometer) -> Mouse cursor movement
+// Head movement (accelerometer angles) -> Mouse cursor movement
 // Jaw Clench -> Left mouse click
 // Triple blink -> Right mouse click
 
@@ -47,9 +43,12 @@ uint32_t imuAddress = 0x68;
 
 //  BASIC SETTINGS (ADJUST THESE TO FINE-TUNE)
 #define MOUSE_UPDATE_RATE 12  // Update frequency: LOWER = faster updates (8-20)
-#define DEADZONE 4            // Rest zone: HIGHER = easier to stop (0.3-2.0) degrees
+#define DEADZONE 4.0          // Rest zone: HIGHER = easier to stop (3.0-8.0) degrees
 #define MIN_SENSITIVITY 0.15  // Slowest speed: LOWER = more precise (0.1-0.5)
 #define MAX_SENSITIVITY 8.0   // Fastest speed: LOWER = more controlled (4.0-15.0)
+
+//  CALIBRATION SETTINGS
+#define ACC_BIAS_SAMPLES 200  // samples averaged for bias at rest
 
 //  SMOOTHING SETTINGS (FOR RESPONSIVENESS)
 #define MOVEMENT_SMOOTHING 0.70  // Movement filter: LOWER = more responsive (0.5-0.85)
@@ -70,34 +69,27 @@ uint32_t imuAddress = 0x68;
 
 // ══════════════════════════════════════════════════════════════════════════════
 
-// ── VIBRATION MOTOR PIN ──
+// ── PIN / LED DEFINES ──
 #define VIBRATION_PIN 7  // Vibration motor for calibration feedback
+#define PIN_NEOPIXEL 15
+#define BATTERY_VOLTAGE_PIN A6
+#define BLUE_LED_DURATION 100
 
-// ─── BMI270 Variables (using Accelerometer) ───
+Adafruit_NeoPixel pixel(6, PIN_NEOPIXEL, NEO_GRB + NEO_KHZ800);
+#define BLE_LED 0
+#define BATTERY_LED 5
+#define IMU_LED 3
+
+// ─── BMI270 (using Accelerometer) ───
 BMI270 imu;
+uint32_t imuAddress = 0x68;
 
-float neutralPitch = 0, neutralRoll = 0;
+float neutralPitch = 0;
+float neutralRoll = 0;
+float mouseVelX = 0, mouseVelY = 0;
 bool isIMUCalibrated = false;
 unsigned long lastMouseUpdate = 0;
-
-// ── LEARNED AXIS MAPPING ──
-// which raw gyro axis (0=X,1=Y,2=Z) and sign drives each cursor axis
-int xAxisIndex = 0;
-int xAxisSign = 1;  // forward axis (nod gesture rotates around this)
-int yAxisIndex = 1;
-int yAxisSign = 1;  // side axis (turn gesture rotates around this)
-int gravAxisIndex;
 bool axisCalibrated = false;
-int biasSampleCount = 0;
-float biasSumAcc[3] = { 0, 0, 0 };
-float readingsAcc[3] = { 0, 0, 0 };
-float calStartAcc[3] = { 0, 0, 0 };
-#define ACC_BIAS_SAMPLES 200
-
-// ── VELOCITY SMOOTHING ──
-float mouseVelX = 0, mouseVelY = 0;
-float mouseAccumX = 0, mouseAccumY = 0;
-
 
 // ── NON-BLOCKING CALIBRATION STATE MACHINE ──
 enum CalibrationState {
@@ -113,6 +105,25 @@ enum CalibrationState {
 
 CalibrationState calState = CAL_IDLE;
 unsigned long calStateStartTime = 0;
+
+// ── LEARNED AXIS MAPPING ──
+// which raw accel axis (0=X,1=Y,2=Z) and sign drives each cursor axis
+int xAxisIndex = 0;
+int xAxisSign = 1;  // side axis (left gesture resolves this)
+int yAxisIndex = 1;
+int yAxisSign = 1;  // forward axis (up gesture resolves this)
+int gravAxisIndex;
+
+// ── BIAS SAMPLING ──
+int biasSampleCount = 0;
+float biasSumAcc[3] = { 0, 0, 0 };
+float calStartAcc[3] = { 0, 0, 0 };
+
+// ── CACHED SENSOR DATA ──
+float readingsAcc[3] = { 0, 0, 0 };
+
+// ── SUB-PIXEL ACCUMULATION ──
+float mouseAccumX = 0, mouseAccumY = 0;
 
 // ─── EEG Signal processing config ───
 #define SAMPLE_RATE 512
@@ -160,8 +171,7 @@ unsigned long lastCmdSentMs = 0;
 uint32_t lastPixel0Color = 0xFFFFFFFF;
 static bool pixelDirty = false;
 
-
-#define BATTERY_VOLTAGE_PIN A6
+// ── Battery level ──
 static const unsigned long BATTERY_CHECK_INTERVAL = 10000;
 static unsigned long lastBatteryCheck = -10000;
 uint32_t batteryColor = 0;
@@ -341,10 +351,10 @@ void updateCalibrationStateMachine(unsigned long nowMs) {
 
   switch (calState) {
     case CAL_INIT_WAIT:
-      if (elapsed >= 3000) {  // 3 second initial wait
-        calStartAcc[0] = imu.data.accelX;
-        calStartAcc[1] = imu.data.accelY;
-        calStartAcc[2] = imu.data.accelZ;
+      if (elapsed >= 3000) {
+        calStartAcc[0] = readingsAcc[0];
+        calStartAcc[1] = readingsAcc[1];
+        calStartAcc[2] = readingsAcc[2];
         calState = CAL_UP_VIBRATE;
         calStateStartTime = nowMs;
         startVibration();
@@ -353,12 +363,11 @@ void updateCalibrationStateMachine(unsigned long nowMs) {
       break;
 
     case CAL_UP_VIBRATE:
-      if (elapsed >= 3000) {  // 3 second vibration for UP movement
-        // Get end pitch position
+      if (elapsed >= 3000) {
         float d[3] = { 0 };
-        d[0] = imu.data.accelX - calStartAcc[0];
-        d[1] = imu.data.accelY - calStartAcc[1];
-        d[2] = imu.data.accelZ - calStartAcc[2];
+        d[0] = readingsAcc[0] - calStartAcc[0];
+        d[1] = readingsAcc[1] - calStartAcc[1];
+        d[2] = readingsAcc[2] - calStartAcc[2];
         resolveAxis(d, yAxisIndex, yAxisSign);
         stopVibration();
         calState = CAL_UP_WAIT;
@@ -367,10 +376,10 @@ void updateCalibrationStateMachine(unsigned long nowMs) {
       break;
 
     case CAL_UP_WAIT:
-      if (elapsed >= 3000) {  // 3 second wait to return to center
-        calStartAcc[0] = imu.data.accelX;
-        calStartAcc[1] = imu.data.accelY;
-        calStartAcc[2] = imu.data.accelZ;
+      if (elapsed >= 3000) {
+        calStartAcc[0] = readingsAcc[0];
+        calStartAcc[1] = readingsAcc[1];
+        calStartAcc[2] = readingsAcc[2];
         calState = CAL_LEFT_VIBRATE;
         calStateStartTime = nowMs;
         startVibration();
@@ -379,11 +388,11 @@ void updateCalibrationStateMachine(unsigned long nowMs) {
       break;
 
     case CAL_LEFT_VIBRATE:
-      if (elapsed >= 3000) {  // 3 second vibration for LEFT movement
+      if (elapsed >= 3000) {
         float d[3] = { 0 };
-        d[0] = imu.data.accelX - calStartAcc[0];
-        d[1] = imu.data.accelY - calStartAcc[1];
-        d[2] = imu.data.accelZ - calStartAcc[2];
+        d[0] = readingsAcc[0] - calStartAcc[0];
+        d[1] = readingsAcc[1] - calStartAcc[1];
+        d[2] = readingsAcc[2] - calStartAcc[2];
         resolveAxis(d, xAxisIndex, xAxisSign);
         xAxisSign = -xAxisSign;  // Invert X axis to match natural head movement
         stopVibration();
@@ -401,7 +410,7 @@ void updateCalibrationStateMachine(unsigned long nowMs) {
       break;
 
     case CAL_LEFT_WAIT:
-      if (elapsed >= 2000) {  // 2 second wait to return to center
+      if (elapsed >= 2000) {
         biasSampleCount = 0;
         biasSumAcc[0] = biasSumAcc[1] = biasSumAcc[2] = 0;
         calState = CAL_NEUTRAL_SAMPLE;
@@ -411,19 +420,16 @@ void updateCalibrationStateMachine(unsigned long nowMs) {
 
     case CAL_NEUTRAL_SAMPLE:
       if (biasSampleCount < ACC_BIAS_SAMPLES) {
-        biasSumAcc[0] += imu.data.accelX;
-        biasSumAcc[1] += imu.data.accelY;
-        biasSumAcc[2] += imu.data.accelZ;
+        biasSumAcc[0] += readingsAcc[0];
+        biasSumAcc[1] += readingsAcc[1];
+        biasSumAcc[2] += readingsAcc[2];
         biasSampleCount++;
       } else {
-        // Calibration complete
         float accBias[3] = { 0 };
         accBias[0] = biasSumAcc[0] / ACC_BIAS_SAMPLES;
         accBias[1] = biasSumAcc[1] / ACC_BIAS_SAMPLES;
         accBias[2] = biasSumAcc[2] / ACC_BIAS_SAMPLES;
         gravAxisIndex = 3 - xAxisIndex - yAxisIndex;
-        // xAxisIndex = forward axis (nod rotates around this → accelX changes)
-        // yAxisIndex = side axis   (tilt rotates around this → accelY changes)
         float fwd = accBias[yAxisIndex] * yAxisSign;
         float side = accBias[xAxisIndex] * xAxisSign;
         float grav = accBias[gravAxisIndex];
@@ -545,7 +551,6 @@ void handleBlinks(unsigned long nowMs) {
       lastCmdSentMs = millis();
       ledState = LED_BLUE_FADE;
       Serial.println("Right click");
-
       blinkCount = 0;
     } else {
       firstBlinkTime = nowMs;
@@ -558,9 +563,11 @@ void handleBlinks(unsigned long nowMs) {
     blinkActive = false;
   }
 
+  // Double blink window expired (left click handled by jaw clench)
   if (blinkCount == 2 && (nowMs - secondBlinkTime) > triple_blink_ms) {
     blinkCount = 0;
   }
+  // Single blink timeout
   if (blinkCount == 1 && (nowMs - firstBlinkTime) > DOUBLE_BLINK_MS) {
     blinkCount = 0;
   }
@@ -603,6 +610,7 @@ int getCurrentBatteryPercentage() {
   return lastBatteryPct;
 }
 
+// Update IMU I2C led
 void updateIMULed(bool connectionStatus) {
   uint32_t color;
 
@@ -611,8 +619,8 @@ void updateIMULed(bool connectionStatus) {
   } else {
     color = pixel.Color(0, 20, 0);  // Green = ready
   }
-
   pixel.setPixelColor(IMU_LED, color);
+  pixel.show();
 }
 
 void updateBLELed() {
@@ -624,7 +632,7 @@ void updateBLELed() {
   } else {
     unsigned long elapsed = millis() - lastCmdSentMs;
     if (elapsed < BLUE_LED_DURATION) {
-      color = pixel.Color(0, 0, 20);
+      color = pixel.Color(0, 0, 30);
     } else {
       ledState = LED_GREEN;
       color = pixel.Color(0, 20, 0);
@@ -645,11 +653,15 @@ void setup() {
 
   pixel.begin();
   pixel.clear();
+  pixel.show();
+
+  Wire.begin(22, 23);
+
   int currentBattery = getCurrentBatteryPercentage();
   if (currentBattery <= 20) {
     batteryColor = pixel.Color(20, 0, 0);
   } else if (currentBattery <= 70) {
-    batteryColor = pixel.Color(30, 20, 0);
+    batteryColor = pixel.Color(35, 7, 0);
   } else {
     batteryColor = pixel.Color(0, 20, 0);
   }
@@ -658,7 +670,6 @@ void setup() {
   Serial.print(currentBattery);
   Serial.println("%");
 
-  Wire.begin(22, 23);
   while (imu.beginI2C() != BMI2_OK) {
     static bool imuFailLogged = false;
     if (!imuFailLogged) {
@@ -715,20 +726,21 @@ void loop() {
     pixelDirty = true;
     Serial.println(connected ? "BLE connected" : "BLE disconnected");
   }
-  bool imuConnect;
+
+  bool imuConnected;
   Wire.beginTransmission(imuAddress);
   if (!Wire.endTransmission()) {
-    imuConnect = true;
+    imuConnected = true;
   } else {
-    imuConnect = false;
+    imuConnected = false;
   }
-  static bool lastIMUconnectStatus = false;
-  if (imuConnect != lastIMUconnectStatus) {
-    lastIMUconnectStatus = imuConnect;
-    updateIMULed(imuConnect);
+  static bool lastConnection = false;
+  if (imuConnected != lastConnection) {
+    lastConnection = imuConnected;
+    updateIMULed(imuConnected);
     pixelDirty = true;
 
-    if (!imuConnect) {
+    if (!imuConnected) {
       // ── IMU just DISCONNECTED ──
       // Invalidate calibration so mouse stops moving
       isIMUCalibrated = false;
@@ -765,7 +777,7 @@ void loop() {
     if (currentBattery <= 20) {
       batteryColor = pixel.Color(20, 0, 0);
     } else if (currentBattery <= 70) {
-      batteryColor = pixel.Color(30, 20, 0);
+      batteryColor = pixel.Color(35, 7, 0);
     } else {
       batteryColor = pixel.Color(0, 20, 0);
     }
@@ -781,7 +793,6 @@ void loop() {
   updateBLELed();
 
   static unsigned long lastMicros = micros();
-  unsigned long nowMs = millis();
 
   unsigned long now = micros(), dt = now - lastMicros;
   lastMicros = now;
@@ -790,9 +801,12 @@ void loop() {
 
   if (timer <= 0 && connected && imu.getSensorData() == BMI2_OK) {
     timer += 1000000L / SAMPLE_RATE;
+    unsigned long nowMs = millis();
+
     readingsAcc[0] = imu.data.accelX;
     readingsAcc[1] = imu.data.accelY;
     readingsAcc[2] = imu.data.accelZ;
+
     // NON-BLOCKING CALIBRATION UPDATE
     updateCalibrationStateMachine(nowMs);
 
@@ -817,7 +831,7 @@ void loop() {
     handleBlinks(nowMs);
   }
 
-  // 4) PRECISION MOUSE CONTROL (ACCELEROMETER BASED) - runs continuously
+  // PRECISION MOUSE CONTROL (ACCELEROMETER BASED) - runs continuously
   if (connected) {
     updatePrecisionMouse(millis());
   }

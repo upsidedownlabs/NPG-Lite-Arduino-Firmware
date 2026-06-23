@@ -17,23 +17,19 @@
 // Copyright (c) 2025 Upside Down Labs - contact@upsidedownlabs.tech
 // Copyright (c) 2026 Varun Patil - vap05072006@gmail.com
 
+// At Upside Down Labs, we create open-source DIY neuroscience hardware and software.
+// Our mission is to make neuroscience affordable and accessible for everyone.
+// By supporting us with your purchase, you help spread innovation and open science.
+// Thank you for being part of this journey with us!
+
 // Core includes
 #include <Arduino.h>
+#include <Adafruit_NeoPixel.h>
 #include <Wire.h>
 #include <BleCombo.h>
-#include <Adafruit_NeoPixel.h>
 
 // ── BMI270 Includes ──
 #include <SparkFun_BMI270_Arduino_Library.h>
-
-#define PIXEL_PIN 15
-#define PIXEL_COUNT 6
-Adafruit_NeoPixel pixel(PIXEL_COUNT, PIXEL_PIN, NEO_GRB + NEO_KHZ800);
-#define BLE_LED 0
-#define BATTERY_LED 5
-#define IMU_LED 3
-#define BLUE_LED_DURATION 100
-uint32_t imuAddress = 0x68;
 
 // ══════════════════════════════════════════════════════════════════════════════
 // ─── CONTROL MAPPING CONFIGURATION ───
@@ -52,7 +48,7 @@ uint32_t imuAddress = 0x68;
 #define MAX_SENSITIVITY 10.0  // Fastest speed: LOWER = more controlled (4.0-15.0)
 
 //  PRECISION SETTINGS (FOR MINUTE MOVEMENTS)
-#define PRECISION_ZONE 3.0        // Precision angle range: HIGHER = more precision zone (1.0-4.0)
+#define PRECISION_ZONE 4.0        // Precision angle range: HIGHER = more precision zone (1.0-4.0)
 #define PRECISION_MULTIPLIER 0.1  // Precision sensitivity: LOWER = more precise (0.2-0.6)
 
 //  SMOOTHING SETTINGS (FOR RESPONSIVENESS)
@@ -79,8 +75,17 @@ uint32_t imuAddress = 0x68;
 // ── VIBRATION MOTOR PIN ──
 #define VIBRATION_PIN 7  // Vibration motor for calibration feedback
 
+#define PIN_NEOPIXEL 15
+#define BLUE_LED_DURATION 100
+
+Adafruit_NeoPixel pixel(6, PIN_NEOPIXEL, NEO_GRB + NEO_KHZ800);
+#define BLE_LED 0
+#define BATTERY_LED 5
+#define IMU_LED 3
+
 // ─── BMI270 ───
 BMI270 imu;
+uint32_t imuAddress = 0x68;
 
 // Mouse control variables (gyro rate based)
 bool isIMUCalibrated = false;
@@ -138,11 +143,11 @@ unsigned long calStateStartTime = 0;
 
 // Double/Triple Blink Configuration
 const unsigned long BLINK_DEBOUNCE_MS = 250;
-const unsigned long DOUBLE_BLINK_MS = 400;
+const unsigned long DOUBLE_BLINK_MS = 300;
 unsigned long lastBlinkTime = 0;
 unsigned long firstBlinkTime = 0;
 unsigned long secondBlinkTime = 0;
-unsigned long triple_blink_ms = 1000;
+const unsigned long triple_blink_ms = 800;
 int blinkCount = 0;
 bool blinkActive = false;
 
@@ -174,7 +179,6 @@ LedState ledState = LED_RED;
 unsigned long lastCmdSentMs = 0;
 uint32_t lastPixel0Color = 0xFFFFFFFF;
 static bool pixelDirty = false;
-
 
 #define BATTERY_VOLTAGE_PIN A6
 static const unsigned long BATTERY_CHECK_INTERVAL = 10000;
@@ -341,6 +345,7 @@ void resolveAxis(float sum[3], int &axisIndex, int &axisSign) {
   axisSign = (sum[a] > 0) ? 1 : -1;
 }
 
+// ─── NON-BLOCKING CALIBRATION STATE MACHINE ───
 void updateCalibrationStateMachine(unsigned long nowMs) {
   if (calState == CAL_IDLE || calState == CAL_COMPLETE)
     return;
@@ -350,7 +355,7 @@ void updateCalibrationStateMachine(unsigned long nowMs) {
 
   switch (calState) {
     case CAL_INIT_WAIT:
-      if (elapsed >= 3000) {  // 3 second initial wait
+      if (elapsed >= 3000) {
         gestureSum[0] = gestureSum[1] = gestureSum[2] = 0;
         lastGyroMicros = micros();
         calState = CAL_UP_VIBRATE;
@@ -382,7 +387,7 @@ void updateCalibrationStateMachine(unsigned long nowMs) {
       }
 
     case CAL_UP_WAIT:
-      if (elapsed >= 3000) {  // 3 second wait to return to center
+      if (elapsed >= 3000) {
         gestureSum[0] = gestureSum[1] = gestureSum[2] = 0;
         lastGyroMicros = micros();
         calState = CAL_LEFT_VIBRATE;
@@ -423,7 +428,7 @@ void updateCalibrationStateMachine(unsigned long nowMs) {
       }
 
     case CAL_LEFT_WAIT:
-      if (elapsed >= 2000) {  // 2 second wait to return to center
+      if (elapsed >= 2000) {
         biasSampleCount = 0;
         biasSum[0] = biasSum[1] = biasSum[2] = 0;
         calState = CAL_NEUTRAL_SAMPLE;
@@ -448,7 +453,6 @@ void updateCalibrationStateMachine(unsigned long nowMs) {
         calState = CAL_COMPLETE;
         Serial.println("Calibration complete");
 
-        // Give completion feedback (3 short vibrations)
         for (int i = 0; i < 3; i++) {
           startVibration();
           delay(100);
@@ -463,7 +467,6 @@ void updateCalibrationStateMachine(unsigned long nowMs) {
   }
 }
 
-// To map
 float mapRateToMouse(float rate) {
   if (rate == 0) return 0;
 
@@ -521,7 +524,7 @@ void updatePrecisionMouse(unsigned long nowMs) {
   mouseAccumY += mouseVelY;
   int finalMouseX = (int)mouseAccumX;
   int finalMouseY = (int)mouseAccumY;
-  mouseAccumX -= finalMouseX;  // carry fraction to next frame
+  mouseAccumX -= finalMouseX;
   mouseAccumY -= finalMouseY;
 
   if (finalMouseX != 0 || finalMouseY != 0) {
@@ -644,6 +647,7 @@ int getCurrentBatteryPercentage() {
   return lastBatteryPct;
 }
 
+// Update IMU I2C led
 void updateIMULed(bool connectionStatus) {
   uint32_t color;
 
@@ -654,6 +658,7 @@ void updateIMULed(bool connectionStatus) {
   }
 
   pixel.setPixelColor(IMU_LED, color);
+  pixel.show();
 }
 
 void updateBLELed() {
@@ -665,7 +670,7 @@ void updateBLELed() {
   } else {
     unsigned long elapsed = millis() - lastCmdSentMs;
     if (elapsed < BLUE_LED_DURATION) {
-      color = pixel.Color(0, 0, 20);
+      color = pixel.Color(0, 0, 30);
     } else {
       ledState = LED_GREEN;
       color = pixel.Color(0, 20, 0);
@@ -682,15 +687,19 @@ void updateBLELed() {
 void setup() {
   Serial.begin(115200);
   Serial.println("NPG Mouse BMI270 starting");
-  delay(2000);
+  delay(200);
 
   pixel.begin();
   pixel.clear();
+  pixel.show();
+
+  Wire.begin(22, 23);
+
   int currentBattery = getCurrentBatteryPercentage();
   if (currentBattery <= 20) {
     batteryColor = pixel.Color(20, 0, 0);
   } else if (currentBattery <= 70) {
-    batteryColor = pixel.Color(30, 20, 0);
+    batteryColor = pixel.Color(35, 7, 0);
   } else {
     batteryColor = pixel.Color(0, 20, 0);
   }
@@ -699,7 +708,6 @@ void setup() {
   Serial.print(currentBattery);
   Serial.println("%");
 
-  Wire.begin(22, 23);
   while (imu.beginI2C() != BMI2_OK) {
     static bool imuFailLogged = false;
     if (!imuFailLogged) {
@@ -772,8 +780,6 @@ void loop() {
     pixelDirty = true;
 
     if (!imuConnect) {
-      // ── IMU just DISCONNECTED ──
-      // Invalidate calibration so mouse stops moving
       isIMUCalibrated = false;
       axisCalibrated = false;
       calState = CAL_INIT_WAIT;
@@ -792,8 +798,6 @@ void loop() {
       eegFilter.reset();
       Serial.println("IMU disconnected");
     } else {
-      // ── IMU just RECONNECTED ──
-      // Re-init the IMU hardware
       if (imu.beginI2C() == BMI2_OK) {
         Serial.println("IMU reconnected");
         calState = CAL_INIT_WAIT;
@@ -810,7 +814,7 @@ void loop() {
     if (currentBattery <= 20) {
       batteryColor = pixel.Color(20, 0, 0);
     } else if (currentBattery <= 70) {
-      batteryColor = pixel.Color(30, 20, 0);
+      batteryColor = pixel.Color(35, 7, 0);
     } else {
       batteryColor = pixel.Color(0, 20, 0);
     }
@@ -849,11 +853,9 @@ void loop() {
     batteryWinCount++;
 
     float notchFiltered = eegNotchFilter.process(raw1);
-
     float filteredEEG = eegFilter.process(notchFiltered);
     float filteredEOG = eogFilter.process(filteredEEG);
     currentEEGEnvelope = updateEEGEnvelope(filteredEOG);
-
     float jawFiltered = jawHighPassFilter.process(notchFiltered);
     currentJawEnvelope = updateJawEnvelope(jawFiltered);
 
@@ -861,8 +863,8 @@ void loop() {
     handleBlinks(nowMs);
   }
 
-  // 4) PRECISION MOUSE CONTROL (ACCELEROMETER BASED) - runs continuously
+  // 4) PRECISION MOUSE - runs continuously
   if (connected) {
-    updatePrecisionMouse(nowMs);
+    updatePrecisionMouse(millis());
   }
 }

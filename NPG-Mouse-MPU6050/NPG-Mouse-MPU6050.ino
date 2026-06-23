@@ -35,7 +35,7 @@
 // ─── CONTROL MAPPING CONFIGURATION ───
 // ══════════════════════════════════════════════════════════════════════════════
 // Head movement (gyro rate) -> Mouse cursor movement
-// Double blink -> Left mouse click
+// Jaw Clench -> Left mouse click
 // Triple blink -> Right mouse click
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -65,12 +65,17 @@
 #define GYRO_DEADZONE 5.0      // deg/s below this = no movement
 #define GYRO_BIAS_SAMPLES 200  // samples averaged for bias at rest
 
+// ===== JAW CLENCH CONFIGURATION =====
+#define JAW_THRESHOLD 40.0      // Jaw clench detection threshold
+#define JAW_DEBOUNCE_MS 500     // Debounce time for jaw clench
+#define JAW_OFF_THRESHOLD 30.0  // Hysteresis: must fall below this to re-arm
+
 // ══════════════════════════════════════════════════════════════════════════════
 
 // ── VIBRATION MOTOR PIN ──
 #define VIBRATION_PIN 7  // Vibration motor for calibration feedback
+
 #define PIN_NEOPIXEL 15
-#define BATTERY_VOLTAGE_PIN A6
 #define BLUE_LED_DURATION 100
 
 Adafruit_NeoPixel pixel(6, PIN_NEOPIXEL, NEO_GRB + NEO_KHZ800);
@@ -82,6 +87,7 @@ Adafruit_NeoPixel pixel(6, PIN_NEOPIXEL, NEO_GRB + NEO_KHZ800);
 Adafruit_MPU6050 mpu;
 uint32_t mpuAddress = 0x68;
 
+// Mouse control variables (gyro rate based)
 bool isIMUCalibrated = false;
 unsigned long lastMouseUpdate = 0;
 
@@ -129,27 +135,69 @@ unsigned long calStateStartTime = 0;
 
 // ─── EEG Signal processing config ───
 #define SAMPLE_RATE 512
-#define INPUT_PIN1 A0  // EEG input
+#define INPUT_PIN1 A0  // EEG input only (also used for jaw clench)
 
 // EEG Envelope Configuration for blink detection
 #define ENVELOPE_WINDOW_MS 100
 #define ENVELOPE_WINDOW_SIZE ((ENVELOPE_WINDOW_MS * SAMPLE_RATE) / 1000)
 
 // Double/Triple Blink Configuration
-const unsigned long BLINK_DEBOUNCE_MS = 150;
-const unsigned long DOUBLE_BLINK_MS = 800;
+const unsigned long BLINK_DEBOUNCE_MS = 250;
+const unsigned long DOUBLE_BLINK_MS = 300;
 unsigned long lastBlinkTime = 0;
 unsigned long firstBlinkTime = 0;
 unsigned long secondBlinkTime = 0;
-unsigned long triple_blink_ms = 1000;
+const unsigned long triple_blink_ms = 800;
 int blinkCount = 0;
 bool blinkActive = false;
+
+// Jaw clench variables
+unsigned long lastJawClenchTime = 0;
+
+bool jawState = false;            // true = currently in a clench
+bool jawClenchTriggered = false;  // true if clench already triggered for current press
 
 float envelopeBuffer[ENVELOPE_WINDOW_SIZE] = { 0 };
 int envelopeIndex = 0;
 float envelopeSum = 0;
 float currentEEGEnvelope = 0;
-float BlinkThreshold = 150.0;
+float BlinkThreshold = 200.0;
+
+// Jaw envelope buffer (separate for jaw detection)
+float jawEnvelopeBuffer[ENVELOPE_WINDOW_SIZE] = { 0 };
+int jawEnvelopeIndex = 0;
+float jawEnvelopeSum = 0;
+float currentJawEnvelope = 0;
+
+// ── BLE LED state machine ──
+enum LedState {
+  LED_RED,
+  LED_GREEN,
+  LED_BLUE_FADE
+};
+LedState ledState = LED_RED;
+unsigned long lastCmdSentMs = 0;
+uint32_t lastPixel0Color = 0xFFFFFFFF;
+static bool pixelDirty = false;
+
+#define BATTERY_VOLTAGE_PIN A6
+static const unsigned long BATTERY_CHECK_INTERVAL = 10000;
+static unsigned long lastBatteryCheck = -10000;
+uint32_t batteryColor = 0;
+static uint32_t batteryWinSum = 0;
+static uint16_t batteryWinCount = 0;
+static int lastBatteryPct = -1;
+static uint8_t risingCount = 0;
+static const uint8_t RISING_THRESHOLD = 3;
+const float voltageLUT[] = {
+  3.27, 3.61, 3.69, 3.71, 3.73, 3.75, 3.77, 3.79, 3.80, 3.82,
+  3.84, 3.85, 3.87, 3.91, 3.95, 3.98, 4.02, 4.08, 4.11, 4.15, 4.20
+};
+const int percentLUT[] = {
+  0, 5, 10, 15, 20, 25, 30, 35, 40, 45,
+  50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100
+};
+const int lutSize = sizeof(voltageLUT) / sizeof(voltageLUT[0]);
 
 // ─── FILTERS ───
 // Band-Stop Butterworth IIR digital filter (50Hz notch)
@@ -209,6 +257,31 @@ public:
   }
 } eogFilter;
 
+// High-Pass Butterworth IIR for jaw clench (70Hz)
+class JawHighPassFilter {
+private:
+  struct BiquadState {
+    float z1 = 0, z2 = 0;
+  };
+  BiquadState state0;
+
+public:
+  float process(float input) {
+    float output = input;
+
+    float x0 = output - (-0.82523238f * state0.z1) - (0.29463653f * state0.z2);
+    output = 0.52996723f * x0 + -1.05993445f * state0.z1 + 0.52996723f * state0.z2;
+    state0.z2 = state0.z1;
+    state0.z1 = x0;
+
+    return output;
+  }
+
+  void reset() {
+    state0.z1 = state0.z2 = 0;
+  }
+} jawHighPassFilter;
+
 // Low-Pass Butterworth IIR digital filter
 class EEGFilter {
 private:
@@ -234,6 +307,7 @@ public:
   }
 } eegFilter;
 
+// Update EEG envelope for blinks
 float updateEEGEnvelope(float sample) {
   float absSample = fabsf(sample);
   envelopeSum -= envelopeBuffer[envelopeIndex];
@@ -241,6 +315,16 @@ float updateEEGEnvelope(float sample) {
   envelopeBuffer[envelopeIndex] = absSample;
   envelopeIndex = (envelopeIndex + 1) % ENVELOPE_WINDOW_SIZE;
   return envelopeSum / ENVELOPE_WINDOW_SIZE;
+}
+
+// Update jaw envelope for clench detection
+float updateJawEnvelope(float sample) {
+  float absSample = fabsf(sample);
+  jawEnvelopeSum -= jawEnvelopeBuffer[jawEnvelopeIndex];
+  jawEnvelopeSum += absSample;
+  jawEnvelopeBuffer[jawEnvelopeIndex] = absSample;
+  jawEnvelopeIndex = (jawEnvelopeIndex + 1) % ENVELOPE_WINDOW_SIZE;
+  return jawEnvelopeSum / ENVELOPE_WINDOW_SIZE;
 }
 
 // ─── VIBRATION FEEDBACK FUNCTIONS ───
@@ -260,17 +344,6 @@ void resolveAxis(float sum[3], int &axisIndex, int &axisSign) {
   axisIndex = a;
   axisSign = (sum[a] > 0) ? 1 : -1;
 }
-
-// ── BLE LED state machine ──
-enum LedState {
-  LED_RED,
-  LED_GREEN,
-  LED_BLUE_FADE
-};
-LedState ledState = LED_RED;
-unsigned long lastCmdSentMs = 0;
-uint32_t lastPixel0Color = 0xFFFFFFFF;
-static bool pixelDirty = false;
 
 // ─── NON-BLOCKING CALIBRATION STATE MACHINE ───
 void updateCalibrationStateMachine(unsigned long nowMs) {
@@ -345,7 +418,6 @@ void updateCalibrationStateMachine(unsigned long nowMs) {
             lastGyroMicros = micros();
             calState = CAL_INIT_WAIT;
             calStateStartTime = nowMs;
-            startVibration();
             break;
           }
           calState = CAL_LEFT_WAIT;
@@ -422,12 +494,15 @@ void updatePrecisionMouse(unsigned long nowMs) {
     return;
   lastMouseUpdate = nowMs;
 
+  // Map raw gyro axes to cursor axes using learned calibration
   float rateX = readingsGyro[xAxisIndex] * xAxisSign;
   float rateY = readingsGyro[yAxisIndex] * yAxisSign;
 
+  // Deadzone (kills rest creep / drift)
   if (fabs(rateX) < GYRO_DEADZONE) rateX = 0;
   if (fabs(rateY) < GYRO_DEADZONE) rateY = 0;
 
+  // Light smoothing for jitter
   smoothRateX = MOVEMENT_SMOOTHING * smoothRateX + (1.0f - MOVEMENT_SMOOTHING) * rateX;
   smoothRateY = MOVEMENT_SMOOTHING * smoothRateY + (1.0f - MOVEMENT_SMOOTHING) * rateY;
 
@@ -460,24 +535,81 @@ void updatePrecisionMouse(unsigned long nowMs) {
   }
 }
 
-// ── Battery level ──
-static const unsigned long BATTERY_CHECK_INTERVAL = 10000;
-static unsigned long lastBatteryCheck = -10000;
-uint32_t batteryColor = 0;
-static uint32_t batteryWinSum = 0;
-static uint16_t batteryWinCount = 0;
-static int lastBatteryPct = -1;
-static uint8_t risingCount = 0;
-static const uint8_t RISING_THRESHOLD = 3;
-const float voltageLUT[] = {
-  3.27, 3.61, 3.69, 3.71, 3.73, 3.75, 3.77, 3.79, 3.80, 3.82,
-  3.84, 3.85, 3.87, 3.91, 3.95, 3.98, 4.02, 4.08, 4.11, 4.15, 4.20
-};
-const int percentLUT[] = {
-  0, 5, 10, 15, 20, 25, 30, 35, 40, 45,
-  50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100
-};
-const int lutSize = sizeof(voltageLUT) / sizeof(voltageLUT[0]);
+// ========== JAW CLENCH DETECTION ==========
+void handleJawClench(unsigned long nowMs) {
+  if (!isIMUCalibrated || !axisCalibrated) return;
+  if (!jawState) {
+    // Not currently clenching - check for threshold crossing
+    if (currentJawEnvelope > JAW_THRESHOLD && (nowMs - lastJawClenchTime) >= JAW_DEBOUNCE_MS) {
+      jawState = true;
+      jawClenchTriggered = false;  // Not triggered yet for this press
+      lastJawClenchTime = nowMs;
+    }
+  } else {
+    // Currently in clench state
+    if (!jawClenchTriggered) {
+      // This is the first time we're detecting this clench
+      // Send left mouse click
+      Mouse.click(MOUSE_LEFT);
+      lastCmdSentMs = millis();
+      ledState = LED_BLUE_FADE;
+      Serial.println("Left click");
+
+      jawClenchTriggered = true;
+
+      // Visual feedback (vibration)
+      startVibration();
+      delay(50);
+      stopVibration();
+    }
+
+    // Check if jaw clench has ended
+    if (currentJawEnvelope < JAW_OFF_THRESHOLD) {
+      jawState = false;
+    }
+  }
+}
+
+// ========== BLINK DETECTION (for triple blink = right click) ==========
+void handleBlinks(unsigned long nowMs) {
+  if (!isIMUCalibrated || !axisCalibrated) return;
+  bool envelopeHigh = currentEEGEnvelope > BlinkThreshold;
+  if (!blinkActive && envelopeHigh && (nowMs - lastBlinkTime) >= BLINK_DEBOUNCE_MS) {
+    lastBlinkTime = nowMs;
+    if (blinkCount == 0) {
+      firstBlinkTime = nowMs;
+      blinkCount = 1;
+    } else if (blinkCount == 1 && (nowMs - firstBlinkTime) <= DOUBLE_BLINK_MS) {
+      secondBlinkTime = nowMs;
+      blinkCount = 2;
+    } else if (blinkCount == 2 && (nowMs - secondBlinkTime) <= triple_blink_ms) {
+      // Triple blink detected -> Right mouse click
+      Mouse.click(MOUSE_RIGHT);
+      lastCmdSentMs = millis();
+      ledState = LED_BLUE_FADE;
+      Serial.println("Right click");
+
+      blinkCount = 0;
+    } else {
+      firstBlinkTime = nowMs;
+      blinkCount = 1;
+    }
+    blinkActive = true;
+  }
+
+  if (!envelopeHigh) {
+    blinkActive = false;
+  }
+
+  // Double blink timeout (no action for double blink - only triple blink does right click)
+  if (blinkCount == 2 && (nowMs - secondBlinkTime) > triple_blink_ms) {
+    blinkCount = 0;
+  }
+  // Single blink timeout
+  if (blinkCount == 1 && (nowMs - firstBlinkTime) > DOUBLE_BLINK_MS) {
+    blinkCount = 0;
+  }
+}
 
 float interpolatePercentage(float voltage) {
   if (voltage <= voltageLUT[0])
@@ -516,49 +648,6 @@ int getCurrentBatteryPercentage() {
   return lastBatteryPct;
 }
 
-// ========== BLINK DETECTION (double blink = left click, triple blink = right click) ==========
-void handleBlinks(unsigned long nowMs) {
-  if (!isIMUCalibrated || !axisCalibrated) return;
-  bool envelopeHigh = currentEEGEnvelope > BlinkThreshold;
-  if (!blinkActive && envelopeHigh && (nowMs - lastBlinkTime) >= BLINK_DEBOUNCE_MS) {
-    lastBlinkTime = nowMs;
-    if (blinkCount == 0) {
-      firstBlinkTime = nowMs;
-      blinkCount = 1;
-    } else if (blinkCount == 1 && (nowMs - firstBlinkTime) <= DOUBLE_BLINK_MS) {
-      secondBlinkTime = nowMs;
-      blinkCount = 2;
-    } else if (blinkCount == 2 && (nowMs - secondBlinkTime) <= triple_blink_ms) {
-      Mouse.click(MOUSE_RIGHT);
-      lastCmdSentMs = millis();
-      ledState = LED_BLUE_FADE;
-      Serial.println("Right click");
-      blinkCount = 0;
-    } else {
-      firstBlinkTime = nowMs;
-      blinkCount = 1;
-    }
-    blinkActive = true;
-  }
-
-  if (!envelopeHigh) {
-    blinkActive = false;
-  }
-
-  // Double blink timeout -> Left mouse click
-  if (blinkCount == 2 && (nowMs - secondBlinkTime) > triple_blink_ms) {
-    Mouse.click(MOUSE_LEFT);
-    lastCmdSentMs = millis();
-    ledState = LED_BLUE_FADE;
-    Serial.println("Left click");
-    blinkCount = 0;
-  }
-  // Single blink timeout
-  if (blinkCount == 1 && (nowMs - firstBlinkTime) > DOUBLE_BLINK_MS) {
-    blinkCount = 0;
-  }
-}
-
 // Update IMU I2C led
 void updateIMULed(bool connectionStatus) {
   uint32_t color;
@@ -568,6 +657,7 @@ void updateIMULed(bool connectionStatus) {
   } else {
     color = pixel.Color(0, 20, 0);  // Green = ready
   }
+
   pixel.setPixelColor(IMU_LED, color);
   pixel.show();
 }
@@ -598,6 +688,8 @@ void updateBLELed() {
 void setup() {
   Serial.begin(115200);
   Serial.println("NPG Mouse MPU6050 starting");
+  delay(200);
+
   pixel.begin();
   pixel.clear();
   pixel.show();
@@ -646,11 +738,6 @@ void setup() {
   mpu.setGyroRange(MPU6050_RANGE_250_DEG);
   mpu.setFilterBandwidth(MPU6050_BAND_21_HZ);
 
-  // START NON-BLOCKING CALIBRATION
-  calState = CAL_INIT_WAIT;
-  calStateStartTime = millis();
-  Serial.println("Calibration started, keep head still");
-
   pinMode(INPUT_PIN1, INPUT);
   pinMode(VIBRATION_PIN, OUTPUT);
   digitalWrite(VIBRATION_PIN, LOW);
@@ -658,6 +745,21 @@ void setup() {
   Keyboard.begin();
   Mouse.begin();
   Serial.println("BLE ready, waiting for connection");
+
+  updateIMULed(true);
+
+  // Give power-up indication (2 short vibrations)
+  for (int i = 0; i < 2; i++) {
+    startVibration();
+    delay(100);
+    stopVibration();
+    delay(100);
+  }
+
+  // START NON-BLOCKING CALIBRATION
+  calState = CAL_INIT_WAIT;
+  calStateStartTime = millis();
+  Serial.println("Calibration started, keep head still");
 }
 
 // ─── loop() ───
@@ -671,9 +773,8 @@ void loop() {
     Serial.println(connected ? "BLE connected" : "BLE disconnected");
   }
 
-  Wire.beginTransmission(mpuAddress);
-
   bool imuConnected;
+  Wire.beginTransmission(mpuAddress);
   if (!Wire.endTransmission()) {
     imuConnected = true;
   } else {
@@ -687,13 +788,19 @@ void loop() {
     if (!imuConnected) {
       isIMUCalibrated = false;
       axisCalibrated = false;
-      calState = CAL_IDLE;
+      calState = CAL_INIT_WAIT;
+      calStateStartTime = millis();
 
+      smoothRateX = 0;
+      smoothRateY = 0;
       mouseVelX = 0;
       mouseVelY = 0;
+      mouseAccumX = 0;
+      mouseAccumY = 0;
 
       eegNotchFilter.reset();
       eogFilter.reset();
+      jawHighPassFilter.reset();
       eegFilter.reset();
       Serial.println("IMU disconnected");
     } else {
@@ -709,6 +816,27 @@ void loop() {
       }
     }
   }
+
+  unsigned long currentMillis = millis();
+  if (currentMillis - lastBatteryCheck >= BATTERY_CHECK_INTERVAL) {
+    int currentBattery = getCurrentBatteryPercentage();
+    if (currentBattery <= 20) {
+      batteryColor = pixel.Color(20, 0, 0);
+    } else if (currentBattery <= 70) {
+      batteryColor = pixel.Color(35, 7, 0);
+    } else {
+      batteryColor = pixel.Color(0, 20, 0);
+    }
+    pixelDirty = true;
+    lastBatteryCheck = currentMillis;
+  }
+
+  if (pixelDirty) {
+    pixel.setPixelColor(BATTERY_LED, batteryColor);
+    pixel.show();
+    pixelDirty = false;
+  }
+  updateBLELed();
 
   static unsigned long lastMicros = micros();
   unsigned long nowMs = millis();
@@ -738,33 +866,15 @@ void loop() {
     float filteredEEG = eegFilter.process(notchFiltered);
     float filteredEOG = eogFilter.process(filteredEEG);
     currentEEGEnvelope = updateEEGEnvelope(filteredEOG);
+    float jawFiltered = jawHighPassFilter.process(notchFiltered);
+    currentJawEnvelope = updateJawEnvelope(jawFiltered);
 
+    handleJawClench(nowMs);
     handleBlinks(nowMs);
   }
 
-  // 4) PRECISION MOUSE CONTROL - runs continuously
+  // 4) PRECISION MOUSE - runs continuously
   if (connected) {
     updatePrecisionMouse(millis());
   }
-
-  unsigned long currentMillis = millis();
-  if (currentMillis - lastBatteryCheck >= BATTERY_CHECK_INTERVAL) {
-    int currentBattery = getCurrentBatteryPercentage();
-    if (currentBattery <= 20) {
-      batteryColor = pixel.Color(20, 0, 0);
-    } else if (currentBattery <= 70) {
-      batteryColor = pixel.Color(35, 7, 0);
-    } else {
-      batteryColor = pixel.Color(0, 20, 0);
-    }
-    pixelDirty = true;
-    lastBatteryCheck = currentMillis;
-  }
-
-  if (pixelDirty) {
-    pixel.setPixelColor(BATTERY_LED, batteryColor);
-    pixel.show();
-    pixelDirty = false;
-  }
-  updateBLELed();
 }
