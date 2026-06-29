@@ -131,11 +131,11 @@ float mouseAccumX = 0, mouseAccumY = 0;
 
 // Double/Triple Blink Configuration
 const unsigned long BLINK_DEBOUNCE_MS = 250;
-const unsigned long DOUBLE_BLINK_MS = 300;
+const unsigned long DOUBLE_BLINK_MS = 700;
 unsigned long lastBlinkTime = 0;
 unsigned long firstBlinkTime = 0;
 unsigned long secondBlinkTime = 0;
-const unsigned long triple_blink_ms = 800;
+const unsigned long triple_blink_ms = 1000;
 int blinkCount = 0;
 bool blinkActive = false;
 

@@ -45,7 +45,7 @@
 //  BASIC SETTINGS (ADJUST THESE TO FINE-TUNE)
 #define MOUSE_UPDATE_RATE 8   // Update frequency: LOWER = faster updates (8-20)
 #define MIN_SENSITIVITY 0.5   // Slowest speed: LOWER = more precise (0.1-0.5)
-#define MAX_SENSITIVITY 10.0  // Fastest speed: LOWER = more controlled (4.0-15.0)
+#define MAX_SENSITIVITY 15.0  // Fastest speed: LOWER = more controlled (4.0-15.0)
 
 //  PRECISION SETTINGS (FOR MINUTE MOVEMENTS)
 #define PRECISION_ZONE 4.0        // Precision angle range: HIGHER = more precision zone (1.0-4.0)
@@ -70,7 +70,9 @@
 #define JAW_DEBOUNCE_MS 500     // Debounce time for jaw clench
 #define JAW_OFF_THRESHOLD 30.0  // Hysteresis: must fall below this to re-arm
 
-// ══════════════════════════════════════════════════════════════════════════════
+// ===== Logs for tuning envelope thresholds =====
+#define CALIBRATION 1
+
 
 // ── VIBRATION MOTOR PIN ──
 #define VIBRATION_PIN 7  // Vibration motor for calibration feedback
@@ -143,11 +145,11 @@ unsigned long calStateStartTime = 0;
 
 // Double/Triple Blink Configuration
 const unsigned long BLINK_DEBOUNCE_MS = 250;
-const unsigned long DOUBLE_BLINK_MS = 300;
+const unsigned long DOUBLE_BLINK_MS = 700;
 unsigned long lastBlinkTime = 0;
 unsigned long firstBlinkTime = 0;
 unsigned long secondBlinkTime = 0;
-const unsigned long triple_blink_ms = 800;
+const unsigned long triple_blink_ms = 1000;
 int blinkCount = 0;
 bool blinkActive = false;
 
@@ -161,7 +163,7 @@ float envelopeBuffer[ENVELOPE_WINDOW_SIZE] = { 0 };
 int envelopeIndex = 0;
 float envelopeSum = 0;
 float currentEEGEnvelope = 0;
-float BlinkThreshold = 200.0;
+float BlinkThreshold = 100.0;
 
 // Jaw envelope buffer (separate for jaw detection)
 float jawEnvelopeBuffer[ENVELOPE_WINDOW_SIZE] = { 0 };
@@ -577,11 +579,11 @@ void handleBlinks(unsigned long nowMs) {
   if (!blinkActive && envelopeHigh && (nowMs - lastBlinkTime) >= BLINK_DEBOUNCE_MS) {
     lastBlinkTime = nowMs;
     if (blinkCount == 0) {
-      firstBlinkTime = nowMs;
       blinkCount = 1;
+      firstBlinkTime = nowMs;
     } else if (blinkCount == 1 && (nowMs - firstBlinkTime) <= DOUBLE_BLINK_MS) {
-      secondBlinkTime = nowMs;
       blinkCount = 2;
+      secondBlinkTime = nowMs;
     } else if (blinkCount == 2 && (nowMs - secondBlinkTime) <= triple_blink_ms) {
       // Triple blink detected -> Right mouse click
       Mouse.click(MOUSE_RIGHT);
@@ -868,6 +870,12 @@ void loop() {
     currentEEGEnvelope = updateEEGEnvelope(filteredEOG);
     float jawFiltered = jawHighPassFilter.process(notchFiltered);
     currentJawEnvelope = updateJawEnvelope(jawFiltered);
+    if (CALIBRATION) {
+      Serial.print("EEG envelope values for blink: ");
+      Serial.println(currentEEGEnvelope);
+      Serial.print("Jaw envelope values: ");
+      Serial.println(currentJawEnvelope);
+    }
 
     handleJawClench(nowMs);
     handleBlinks(nowMs);

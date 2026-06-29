@@ -135,11 +135,11 @@ float mouseAccumX = 0, mouseAccumY = 0;
 
 // Double/Triple Blink Configuration
 const unsigned long BLINK_DEBOUNCE_MS = 250;
-const unsigned long DOUBLE_BLINK_MS = 300;
+const unsigned long DOUBLE_BLINK_MS = 700;
 unsigned long lastBlinkTime = 0;
 unsigned long firstBlinkTime = 0;
 unsigned long secondBlinkTime = 0;
-const unsigned long triple_blink_ms = 800;
+const unsigned long triple_blink_ms = 1000;
 int blinkCount = 0;
 bool blinkActive = false;
 
@@ -534,23 +534,27 @@ void handleJawClench(unsigned long nowMs) {
   }
 }
 
-// ========== BLINK DETECTION (triple blink = right click) ==========
+// ========== BLINK DETECTION (for triple blink = right click) ==========
 void handleBlinks(unsigned long nowMs) {
   if (!isIMUCalibrated || !axisCalibrated) return;
   bool envelopeHigh = currentEEGEnvelope > BlinkThreshold;
   if (!blinkActive && envelopeHigh && (nowMs - lastBlinkTime) >= BLINK_DEBOUNCE_MS) {
     lastBlinkTime = nowMs;
     if (blinkCount == 0) {
-      firstBlinkTime = nowMs;
       blinkCount = 1;
-    } else if (blinkCount == 1 && (nowMs - firstBlinkTime) <= DOUBLE_BLINK_MS) {
-      secondBlinkTime = nowMs;
+      firstBlinkTime = nowMs;
+
+    } else if (blinkCount == 1) {
       blinkCount = 2;
+      secondBlinkTime = nowMs;
+
     } else if (blinkCount == 2 && (nowMs - secondBlinkTime) <= triple_blink_ms) {
+      // Triple blink detected -> Right mouse click
       Mouse.click(MOUSE_RIGHT);
       lastCmdSentMs = millis();
       ledState = LED_BLUE_FADE;
       Serial.println("Right click");
+
       blinkCount = 0;
     } else {
       firstBlinkTime = nowMs;
@@ -563,7 +567,7 @@ void handleBlinks(unsigned long nowMs) {
     blinkActive = false;
   }
 
-  // Double blink window expired (left click handled by jaw clench)
+  // Double blink timeout (no action for double blink - only triple blink does right click)
   if (blinkCount == 2 && (nowMs - secondBlinkTime) > triple_blink_ms) {
     blinkCount = 0;
   }
