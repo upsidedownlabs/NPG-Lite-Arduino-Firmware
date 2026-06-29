@@ -11,7 +11,8 @@ This project turns the Neuro Playground Lite (NPG) into a hands-free joystick-st
   - Tilting your head up/down or left/right moves the cursor continuously. The greater the tilt, the faster it moves. Return your head to neutral to stop.
 - **Blink Detection → Mouse Clicks:**
   - NPG reads single-channel EOG data.
-  - Double blinks trigger a left mouse click.
+  - Jaw clench triggers a left mouse click.
+  - Double blinks trigger a left mouse hold, and again double blinking releases the hold.
   - Triple blinks trigger a right mouse click.
 
 ## How It Works
@@ -37,7 +38,7 @@ This project turns the Neuro Playground Lite (NPG) into a hands-free joystick-st
 5. Wear the headband and power on NPG.
 6. Calibrate by following the vibration feedback.
 7. Tilt your head to move the cursor. More tilt means faster movement; center to stop.
-8. Blink twice for a left click and three times for a right click.
+8. Blink twice for a left click, double blink to toggle/release left hold and three times for a right click.
 
 ## Library Installation
 

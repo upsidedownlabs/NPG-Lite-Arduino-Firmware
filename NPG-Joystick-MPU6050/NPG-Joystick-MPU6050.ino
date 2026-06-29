@@ -11,16 +11,26 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
+// Upside Down Labs invests time and resources providing this open source code,
+// please support Upside Down Labs and open-source hardware by purchasing
+// products from Upside Down Labs!
+
 // Copyright (c) 2025 Krishnanshu Mittal - krishnanshu@upsidedownlabs.tech
 // Copyright (c) 2025 Deepak Khatri - deepak@upsidedownlabs.tech
 // Copyright (c) 2025 Upside Down Labs - contact@upsidedownlabs.tech
 // Copyright (c) 2026 Varun Patil - vap05072006@gmail.com
+
+// At Upside Down Labs, we create open-source DIY neuroscience hardware and software.
+// Our mission is to make neuroscience affordable and accessible for everyone.
+// By supporting us with your purchase, you help spread innovation and open science.
+// Thank you for being part of this journey with us!
 
 // Core includes
 #include <Arduino.h>
 #include <Wire.h>
 #include <BleCombo.h>
 #include <Adafruit_NeoPixel.h>
+#include <esp_gap_ble_api.h>
 
 // ── MPU6050 Includes ──
 #include <Adafruit_MPU6050.h>
@@ -63,8 +73,8 @@
 #define JAW_DEBOUNCE_MS 500     // Debounce time for jaw clench
 #define JAW_OFF_THRESHOLD 30.0  // Hysteresis: must fall below this to re-arm
 
-// ══════════════════════════════════════════════════════════════════════════════
-
+// ===== Logs for tuning envelope thresholds =====
+#define CALIBRATION 1
 // ── PIN / LED DEFINES ──
 #define VIBRATION_PIN 7  // Vibration motor for calibration feedback
 #define PIN_NEOPIXEL 15
@@ -138,6 +148,7 @@ unsigned long secondBlinkTime = 0;
 const unsigned long triple_blink_ms = 1000;
 int blinkCount = 0;
 bool blinkActive = false;
+static bool mousePress = false;
 
 // Jaw clench variables
 unsigned long lastJawClenchTime = 0;
@@ -148,7 +159,7 @@ float envelopeBuffer[ENVELOPE_WINDOW_SIZE] = { 0 };
 int envelopeIndex = 0;
 float envelopeSum = 0;
 float currentEEGEnvelope = 0;
-float BlinkThreshold = 200.0;
+float BlinkThreshold = 100.0;
 
 // Jaw envelope buffer
 float jawEnvelopeBuffer[ENVELOPE_WINDOW_SIZE] = { 0 };
@@ -537,11 +548,11 @@ void handleBlinks(unsigned long nowMs) {
   if (!blinkActive && envelopeHigh && (nowMs - lastBlinkTime) >= BLINK_DEBOUNCE_MS) {
     lastBlinkTime = nowMs;
     if (blinkCount == 0) {
-      firstBlinkTime = nowMs;
       blinkCount = 1;
+      firstBlinkTime = nowMs;
     } else if (blinkCount == 1 && (nowMs - firstBlinkTime) <= DOUBLE_BLINK_MS) {
-      secondBlinkTime = nowMs;
       blinkCount = 2;
+      secondBlinkTime = nowMs;
     } else if (blinkCount == 2 && (nowMs - secondBlinkTime) <= triple_blink_ms) {
       Mouse.click(MOUSE_RIGHT);
       lastCmdSentMs = millis();
@@ -561,6 +572,17 @@ void handleBlinks(unsigned long nowMs) {
 
   // Double blink window expired (left click handled by jaw clench)
   if (blinkCount == 2 && (nowMs - secondBlinkTime) > triple_blink_ms) {
+    if (!mousePress) {
+      Mouse.press(MOUSE_LEFT);
+      mousePress = true;
+      Serial.println("Holding left click!!");
+    } else {
+      Mouse.release(MOUSE_LEFT);
+      mousePress = false;
+      Serial.println("Releasing left click!!");
+    }
+    lastCmdSentMs = millis();
+    ledState = LED_BLUE_FADE;
     blinkCount = 0;
   }
   // Single blink timeout
@@ -700,6 +722,8 @@ void setup() {
 
   Keyboard.begin();
   Mouse.begin();
+  String deviceName = "NPG Lite BCI Joystick";
+  esp_ble_gap_set_device_name(deviceName.c_str());
   Serial.println("BLE ready, waiting for connection");
 
   updateIMULed(true);
@@ -796,6 +820,7 @@ void loop() {
   updateBLELed();
 
   static unsigned long lastMicros = micros();
+  unsigned long nowMs = millis();
 
   unsigned long now = micros(), dt = now - lastMicros;
   lastMicros = now;
@@ -804,7 +829,6 @@ void loop() {
 
   if (timer <= 0 && connected && imuConnected) {
     timer += 1000000L / SAMPLE_RATE;
-    unsigned long nowMs = millis();
 
     sensors_event_t a, g, temp;
     mpu.getEvent(&a, &g, &temp);
@@ -831,6 +855,12 @@ void loop() {
     // 4) Process for jaw clench detection (high frequency - 70Hz HPF)
     float jawFiltered = jawHighPassFilter.process(notchFiltered);
     currentJawEnvelope = updateJawEnvelope(jawFiltered);
+    if (CALIBRATION) {
+      Serial.print("EEG envelope values for blink: ");
+      Serial.println(currentEEGEnvelope);
+      Serial.print("Jaw envelope values: ");
+      Serial.println(currentJawEnvelope);
+    }
 
     handleJawClench(nowMs);
     handleBlinks(nowMs);

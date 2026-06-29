@@ -8,6 +8,11 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU General Public License for more details.
 //
+
+// Upside Down Labs invests time and resources providing this open source code,
+// please support Upside Down Labs and open-source hardware by purchasing
+// products from Upside Down Labs!
+
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
@@ -61,7 +66,7 @@
 #define ACCEL_MULTIPLIER 2.5  // Acceleration strength: HIGHER = more acceleration (2.0-4.0)
 
 //  RANGE / GYRO SETTINGS (deg/s)
-#define MAX_RATE 60.0          // deg/s mapped to MAX_SENSITIVITY
+#define MAX_RATE 30.0          // deg/s mapped to MAX_SENSITIVITY
 #define GYRO_DEADZONE 5.0      // deg/s below this = no movement
 #define GYRO_BIAS_SAMPLES 200  // samples averaged for bias at rest
 
@@ -72,7 +77,6 @@
 
 // ===== Logs for tuning envelope thresholds =====
 #define CALIBRATION 1
-
 
 // ── VIBRATION MOTOR PIN ──
 #define VIBRATION_PIN 7  // Vibration motor for calibration feedback
@@ -152,6 +156,7 @@ unsigned long secondBlinkTime = 0;
 const unsigned long triple_blink_ms = 1000;
 int blinkCount = 0;
 bool blinkActive = false;
+static bool mousePress = false;
 
 // Jaw clench variables
 unsigned long lastJawClenchTime = 0;
@@ -605,6 +610,17 @@ void handleBlinks(unsigned long nowMs) {
 
   // Double blink timeout (no action for double blink - only triple blink does right click)
   if (blinkCount == 2 && (nowMs - secondBlinkTime) > triple_blink_ms) {
+    if (!mousePress) {
+      Mouse.press(MOUSE_LEFT);
+      mousePress = true;
+      Serial.println("Holding left click!!");
+    } else {
+      Mouse.release(MOUSE_LEFT);
+      mousePress = false;
+      Serial.println("Releasing left click!!");
+    }
+    lastCmdSentMs = millis();
+    ledState = LED_BLUE_FADE;
     blinkCount = 0;
   }
   // Single blink timeout
@@ -746,6 +762,8 @@ void setup() {
 
   Keyboard.begin();
   Mouse.begin();
+  String deviceName = "NPG Lite BCI Mouse";
+  esp_ble_gap_set_device_name(deviceName.c_str());
   Serial.println("BLE ready, waiting for connection");
 
   updateIMULed(true);

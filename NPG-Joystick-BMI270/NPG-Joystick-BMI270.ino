@@ -11,6 +11,10 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
+// Upside Down Labs invests time and resources providing this open source code,
+// please support Upside Down Labs and open-source hardware by purchasing
+// products from Upside Down Labs!
+
 // Copyright (c) 2025 Aman Maheshwari - aman@upsidedownlabs.tech
 // Copyright (c) 2025 Krishnanshu Mittal - krishnanshu@upsidedownlabs.tech
 // Copyright (c) 2025 Deepak Khatri - deepak@upsidedownlabs.tech
@@ -152,7 +156,8 @@ float envelopeBuffer[ENVELOPE_WINDOW_SIZE] = { 0 };
 int envelopeIndex = 0;
 float envelopeSum = 0;
 float currentEEGEnvelope = 0;
-float BlinkThreshold = 200.0;
+float BlinkThreshold = 100.0;
+static bool mousePress = false;
 
 // Jaw envelope buffer
 float jawEnvelopeBuffer[ENVELOPE_WINDOW_SIZE] = { 0 };
@@ -569,6 +574,17 @@ void handleBlinks(unsigned long nowMs) {
 
   // Double blink timeout (no action for double blink - only triple blink does right click)
   if (blinkCount == 2 && (nowMs - secondBlinkTime) > triple_blink_ms) {
+    if (!mousePress) {
+      Mouse.press(MOUSE_LEFT);
+      mousePress = true;
+      Serial.println("Holding left click!!");
+    } else {
+      Mouse.release(MOUSE_LEFT);
+      mousePress = false;
+      Serial.println("Releasing left click!!");
+    }
+    lastCmdSentMs = millis();
+    ledState = LED_BLUE_FADE;
     blinkCount = 0;
   }
   // Single blink timeout
@@ -704,6 +720,8 @@ void setup() {
 
   Keyboard.begin();
   Mouse.begin();
+  String deviceName = "NPG Lite BCI Joystick";
+  esp_ble_gap_set_device_name(deviceName.c_str());
   Serial.println("BLE ready, waiting for connection");
 
   updateIMULed(true);
