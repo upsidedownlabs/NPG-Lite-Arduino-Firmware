@@ -37,7 +37,7 @@ This project turns the Neuro Playground Lite (NPG) into a hands-free mouse contr
 4. Compile and upload the sketch to your NPG Lite board.
 5. Set up your electrodes and calibrate the sensor as described in the [Connection and Calibration](#connection-and-calibration) section below.
 6. Move your head to control the mouse cursor.
-7. Blink twice for a left click, double blink to toggle/release left hold, and triple blink for a right click.
+7. Jaw clench for a left click, double blink to toggle/release left hold, and triple blink for a right click.
 
 ## Connection and Calibration
 1. Clean your forehead and the bony area behind your ears with alcohol swabs.
