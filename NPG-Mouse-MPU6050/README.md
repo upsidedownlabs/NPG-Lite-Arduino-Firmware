@@ -32,13 +32,32 @@ This project turns the Neuro Playground Lite (NPG) into a hands-free mouse contr
 
 ## How To Use
 1. Attach the NPG and MPU6050 to a headband.
-2. Connect the MPU6050 to NPG via the Qwiic port.
-3. Install the `BleCombo.h` library using the [Library Installation](#library-installation) section below for instructions.
+2. Connect the MPU6050 to the NPG via the Qwiic port.
+3. Install the `BleCombo.h` library following the [Library Installation](#library-installation) section.
 4. Compile and upload the sketch to your NPG Lite board.
-5. Wear the headband and power on NPG.
-6. Calibrate by following the vibration feedback.
-7. Move your head to control the mouse cursor.
-8. Blink twice for a left click, double blink to toggle/release left hold and three times for a right click.
+5. Set up your electrodes and calibrate the sensor as described in the [Connection and Calibration](#connection-and-calibration) section below.
+6. Move your head to control the mouse cursor.
+7. Blink twice for a left click, double blink to toggle/release left hold, and triple blink for a right click.
+
+## Connection and Calibration
+1. Clean your forehead and the bony area behind your ears with alcohol swabs.
+2. Attach the snap cables to the gel electrodes, then peel and stick the electrodes onto the cleaned areas as shown below.
+
+<img src="../assets/NPGConnectionDiagram.jpeg" width=90% alt="NPG Lite connection diagram"/>
+
+3. Turn on the NPG, open Bluetooth on your device, and connect to `NPG Lite BCI Mouse`. You'll feel a short vibration confirming the connection.
+
+4. **Calibration begins automatically.** Follow the vibration cues:
+
+   - **First vibration (~3 seconds):** Look up or tilt your head upward and hold the position until the vibration stops, then return to neutral.
+
+   <img src="../assets/NPGHeadUpwardDiagram.jpeg" width=90% alt="Head upward position"/>
+
+   - **Second vibration (~3 seconds):** Tilt your head to the left and hold until the vibration stops, then return to neutral.
+
+   <img src="../assets/NPGHeadLeftDiagram.jpeg" width=90% alt="Head left position"/>
+
+5. After a brief pause, you'll feel one final short vibration, which means calibration is complete and the mouse is now active.
 
 ## Library Installation
 

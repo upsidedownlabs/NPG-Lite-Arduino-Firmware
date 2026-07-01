@@ -206,7 +206,11 @@ const int percentLUT[] = {
 const int lutSize = sizeof(voltageLUT) / sizeof(voltageLUT[0]);
 
 // ─── FILTERS ───
-// Band-Stop Butterworth IIR digital filter (50Hz notch)
+// Band-Stop Butterworth IIR digital filter
+// Sampling rate: 512.0 Hz, frequency: [48.0, 52.0] Hz
+// Filter is order 2, implemented as second-order sections (biquads)
+// Reference: https://docs.scipy.org/doc/scipy/reference/generated/scipy.signal.butter.html
+// Reference: https://github.com/upsidedownlabs/BioAmp-Filter-Designer
 class NotchFilter {
 private:
   struct BiquadState {
@@ -238,7 +242,11 @@ public:
   }
 } eegNotchFilter;
 
-// High-Pass Butterworth IIR digital filter (for EOG/blinks)
+// High-Pass Butterworth IIR digital filter for EOG (blinks)
+// Sampling rate: 512.0 Hz, frequency: 5.0 Hz
+// Filter is order 2, implemented as second-order sections (biquads)
+// Reference: https://docs.scipy.org/doc/scipy/reference/generated/scipy.signal.butter.html
+// Reference: https://github.com/upsidedownlabs/BioAmp-Filter-Designer
 class EOGFilter {
 private:
   struct BiquadState {
@@ -263,7 +271,11 @@ public:
   }
 } eogFilter;
 
-// High-Pass Butterworth IIR for jaw clench (70Hz)
+// High-Pass Butterworth IIR digital filter
+// Sampling rate: 512.0 Hz, frequency: 71.6 Hz
+// Filter is order 2, implemented as second-order sections (biquads)
+// Reference: https://docs.scipy.org/doc/scipy/reference/generated/scipy.signal.butter.html
+// Reference: https://github.com/upsidedownlabs/BioAmp-Filter-Designer
 class JawHighPassFilter {
 private:
   struct BiquadState {
@@ -289,6 +301,10 @@ public:
 } jawHighPassFilter;
 
 // Low-Pass Butterworth IIR digital filter
+// Sampling rate: 512.0 Hz, frequency: 45.0 Hz
+// Filter is order 2, implemented as second-order sections (biquads)
+// Reference: https://docs.scipy.org/doc/scipy/reference/generated/scipy.signal.butter.html
+// Reference: https://github.com/upsidedownlabs/BioAmp-Filter-Designer
 class EEGFilter {
 private:
   struct BiquadState {
