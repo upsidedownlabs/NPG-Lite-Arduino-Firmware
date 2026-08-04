@@ -37,7 +37,7 @@ https://github.com/upsidedownlabs/ESP32-BLE-CompositeHID and add it with Sketch 
 
 1. Once you've downloaded the Arduino IDE, install the libraries mentioned above.
 2. Install ESP32(version 3.2.0) by Espressif Systems from boards manager. (**Tools -> Board -> Boards Manager**)
-3. Go to [NPG-Lite-Arduino-Firmware](https://github.com/upsidedownlabs/NPG-Lite-Arduino-Firmware) and copy the Firmware code from NPG-Lite-Racing folder.
+3. Go to [NPG-Lite-Arduino-Firmware](https://github.com/upsidedownlabs/NPG-Lite-Arduino-Firmware) and copy the Firmware code from NPG-Lite-Gaming folder.
 4. Open a new sketch in your Arduino IDE, delete the existing code and paste this code.
 5. Select the correct COM port (might show as ESP32 Family Device) from ports.
 6. Go to **Tools -> Board -> ESP32 -> ESP32C6 Dev Module**, and hit the upload button.
@@ -61,7 +61,7 @@ Refer to the electrode placement diagram above for the exact positions.
 
 ## Getting Started and Calibration
 
-1. Enable Bluetooth on your windows and NPG-Lite-Racing should pop up, connect to it.
+1. Enable Bluetooth on your windows and NPG-Lite-Gaming should pop up, connect to it.
    - If it doesn't show up under new devices, make sure Qwiic cable is properly connected and MPU6050 led is bright red, because Bluetooth will not start until the MPU6050 responds.
 2.  Hold the wheel still at the center. After a few seconds of connecting, NPG Lite will vibrate for calibration.
    - **First vibration:** turn the wheel all the way to the left upto the max point you want and hold it there.
@@ -95,7 +95,7 @@ NPG Lite has six RGB LEDs. This project uses three of them, numbered as in the i
 
 ## Adjusting the Settings
 
-All the settings are at the top of `Gaming-Wheel-test.ino`.
+All the settings are at the top of `NPG-Lite-Gaming.ino`.
 
 - `EMG_ENV_MIN` is the muscle effort where a pedal starts to press. Lower it if the pedals feel too hard.
 - `EMG_ENV_MAX` is the effort for a fully pressed pedal. Lower it if you cannot reach full throttle.
