@@ -52,8 +52,6 @@ https://github.com/upsidedownlabs/ESP32-BLE-CompositeHID and add it with Sketch 
    - **A0** is the accelerator leg.
    - **A1** is the brake leg.
    - For each channel, place the positive and negative electrodes a few centimetres apart over the leg muscle, parallel to the muscle fibres.
-
-Refer to the electrode placement diagram above for the exact positions.
 4. Now, connect the MPU 6050 to the Qwiic port of NPG Lite using a Qwiic cable 
    - You might need to solder the wires of the Qwiic cable to MPU6050 if you can't find a module with a Qwiic port.
 5. Screw NPG Lite onto the wheel using compatible screws through the holes on the case.
@@ -63,14 +61,14 @@ Refer to the electrode placement diagram above for the exact positions.
 
 1. Enable Bluetooth on your windows and NPG-Lite-Gaming should pop up, connect to it.
    - If it doesn't show up under new devices, make sure Qwiic cable is properly connected and the power LED on MPU6050 is bright red, because Bluetooth will not start until the MPU6050 responds.
-2.  Hold the wheel still at the center. After a few seconds of connecting, NPG Lite will vibrate for calibration.
-   - **First vibration:** turn the wheel all the way to the left upto the max point you want and hold it there.
-   - **Vibration stops:** bring the wheel back to the center.
-   - **Second vibration:** turn the wheel all the way to the right upto the max point you want and hold it there.
-   - **Vibration stops:** bring the wheel back to the center.
-   - **One short vibration:** calibration is done and the wheel is ready.
-   - If you want to recalibrate at any point, just reset the device using the reset button, it will connect automatically and recalibrate.
-
+2. Hold the wheel still at the center. After a few seconds of connecting, NPG Lite will vibrate for calibration.
+     - **First vibration:** turn the wheel all the way to the left upto the max point you want and hold itthere.
+     - **Vibration stops:** bring the wheel back to the center.
+     - **Second vibration:** turn the wheel all the way to the right upto the max point you want and hold itthere.
+     - **Vibration stops:** bring the wheel back to the center.
+     - **One short vibration:** calibration is done and the wheel is ready.
+     
+     If you want to recalibrate at any point, just reset the device using the reset button, it will connectautomatically and recalibrate.
 How far you turn during calibration becomes full steering lock, so turn as far as you actually want to turn while playing. To calibrate again, just reset the NPG Lite.
 
 ## Controls
