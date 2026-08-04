@@ -807,7 +807,7 @@ void loop() {
     int raw1 = analogRead(INPUT_PIN1);
     int raw2 = analogRead(INPUT_PIN2);
 
-    batteryWinSum += analogRead(BATTERY_VOLTAGE_PIN);
+    batteryWinSum += analogReadMilliVolts(BATTERY_VOLTAGE_PIN);
     batteryWinCount++;
 
     // Filter and envelope extraction for 2 channels
