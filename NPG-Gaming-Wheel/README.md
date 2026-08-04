@@ -1,16 +1,16 @@
 # Gaming Wheel
 
-NPG Lite brings you a custom built racing setup with real driving experience. Steer with a 3D printed steering wheel and press the imaginary pedals with your legs using **muscle signals (EMG)** to play racing games. NPG Lite shows up as an Xbox controller eleminating the need of any other propritory software to emulate a controller.
+NPG Lite brings you a custom-built racing setup with real driving experience. Steer with a 3D-printed steering wheel and press the imaginary pedals with your legs using **muscle signals (EMG)** to play racing games. NPG Lite shows up as an Xbox controller, eliminating the need for any other proprietary software to emulate a controller.
 
 ## What You Need
 
 - Neuro Playground Lite (Ninja or Beast)
 - MPU6050 module with a Qwiic port and a Qwiic cable. If you can't find an MPU6050 module with Qwiic port, you can solder the Qwiic cable directly to the module or use jumper wires to connect a module with header pins
-- A 3D printed steering wheel to hold the NPG Lite (The 3d file to print is available [here](assets/3D-Steering-wheel.stl))
+- A 3D-printed steering wheel to hold the NPG Lite (the 3D steering-wheel STL model is available [here](assets/3D-Steering-wheel.stl))
 - A tripod or similar tool with ball joint to hold the Wheel while providing the ability to move like a steering wheel. We used a tripod, check pictures to know more about this
 - Alcohol swabs (to clean the surface of your skin)
 - 5 pcs gel electrodes and 5 snap cables for two EMG channels
-- A computer with Bluetooth and any controller supported racing game
+- A computer with Bluetooth and any controller-supported racing game
 - [Arduino IDE](https://www.arduino.cc/en/software/)
 
 ## Arduino Libraries
@@ -62,7 +62,7 @@ Refer to the electrode placement diagram above for the exact positions.
 ## Getting Started and Calibration
 
 1. Enable Bluetooth on your windows and NPG-Lite-Gaming should pop up, connect to it.
-   - If it doesn't show up under new devices, make sure Qwiic cable is properly connected and MPU6050 led is bright red, because Bluetooth will not start until the MPU6050 responds.
+   - If it doesn't show up under new devices, make sure Qwiic cable is properly connected and the power LED on MPU6050 is bright red, because Bluetooth will not start until the MPU6050 responds.
 2.  Hold the wheel still at the center. After a few seconds of connecting, NPG Lite will vibrate for calibration.
    - **First vibration:** turn the wheel all the way to the left upto the max point you want and hold it there.
    - **Vibration stops:** bring the wheel back to the center.
