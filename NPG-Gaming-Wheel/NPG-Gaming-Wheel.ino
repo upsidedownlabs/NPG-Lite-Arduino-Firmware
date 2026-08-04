@@ -30,7 +30,7 @@
    Game rumble                      -> vibration motor
     
    Required libraries:
-     ESP32-BLE-CompositeHID  https://github.com/Mystfit/ESP32-BLE-CompositeHID
+     ESP32-BLE-CompositeHID  https://github.com/upsidedownlabs/ESP32-BLE-CompositeHID
      NimBLE-Arduino (2.1.2)  https://github.com/h2zero/NimBLE-Arduino
      Callback                https://github.com/tomstewart89/Callback
      Adafruit MPU6050        https://github.com/adafruit/Adafruit_MPU6050
