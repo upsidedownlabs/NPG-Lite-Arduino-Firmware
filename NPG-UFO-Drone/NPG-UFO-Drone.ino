@@ -75,7 +75,7 @@ const uint8_t DRONE_CMD_CALIBRATE_GYRO = 0x80;
 // Joystick-style stick values (0-255, 128 = neutral)
 const uint8_t STICK_NEUTRAL = 128;
 const uint8_t STICK_THROTTLE_UP = 158;
-const uint8_t STICK_THROTTLE_DOWN = 98;
+const uint8_t STICK_THROTTLE_DOWN = 78;
 const uint8_t STICK_PITCH_FORWARD = 178;
 const uint8_t STICK_TURN = 158;
 
