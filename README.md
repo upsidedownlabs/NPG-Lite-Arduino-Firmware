@@ -29,6 +29,9 @@ Each folder is a self-contained Arduino sketch targeting a specific application.
 | Detects double and triple blinks from EOG signals using high‑pass and notch IIR filters with envelope detection. | [Blinky-Keys-Serial.ino](Blinky-Keys-Serial/Blinky-Keys-Serial.ino) |
 | Implements a BLE HID keyboard that sends right‑arrow on double blinks and left‑arrow on triple blinks to control slides in a presentation.| [Blinky-Keys-BLE.ino](Blinky-Keys-BLE/Blinky-Keys-BLE.ino) |
 | Implements a BLE gamepad that reads EEG and EMG signals to control games on Windows, using focus and muscle contractions.| [BCI-BLE-Gamepad.ino](BCI-BLE-Gamepad/BCI-BLE-Gamepad.ino) |
+| BCI remote (server) to drive the BLE car using EEG  and EOG signal data | [BLE-EOG-Car-Conroller.ino](BLE-BCI-Car-Remote/BLE-BCI-Car-Remote.ino) |
+
+
 
 ---
 
