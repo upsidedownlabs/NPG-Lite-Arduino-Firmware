@@ -1,0 +1,1284 @@
+/* ============================================================
+   NPG IR Transceiver
+   Compact mono. One accent, hairline borders, 0.25rem spacing grid.
+
+   The whole design is driven by the tokens below. Both themes
+   share every size and rule and differ only in colour.
+
+   Sizes are in rem so the layout follows the reader's browser
+   font-size preference. 1rem is the browser default, normally
+   16px, and every token is an exact multiple of 1/16rem, so at
+   the default setting this renders identically to a px build.
+   Never set a font-size on :root, that would defeat the point.
+
+   Four things stay in px on purpose, because they should not
+   grow with text: hairline borders (--edge), the focus ring and
+   its offset, the focus glow spread, and the 1px press nudge.
+   ============================================================ */
+
+:root {
+  /* Tells the browser which way round its own chrome should go, so
+     scrollbars, form controls and the like follow the chosen theme rather
+     than the operating system. Set again in each palette block below. */
+  color-scheme: light;
+
+  /* spacing - 0.25rem grid, no other values are used anywhere */
+  --s1: 0.25rem;    /*  4px */
+  --s2: 0.5rem;     /*  8px */
+  --s3: 0.75rem;    /* 12px */
+  --s4: 1rem;       /* 16px */
+  --s5: 1.25rem;    /* 20px */
+  --s6: 1.5rem;     /* 24px */
+  --s7: 2rem;       /* 32px */
+
+  /* type */
+  --font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+          "Helvetica Neue", Arial, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  --t-xs: 0.6875rem; /* 11px */
+  --t-sm: 0.75rem;   /* 12px */
+  --t-md: 0.8125rem; /* 13px */
+  --t-lg: 0.9375rem; /* 15px */
+  --t-xl: 1.0625rem; /* 17px */
+
+  /* control heights - only these four exist */
+  --h-icon-sm: 1.75rem;  /* 28px */
+  --h-icon: 2rem;        /* 32px */
+  --h-btn: 2.125rem;     /* 34px */
+  --h-fire: 2.875rem;    /* 46px */
+
+  /* radius - controls, containers, pills. circles use 50% */
+  --r: 0.375rem;     /*  6px */
+  --r-lg: 0.625rem;  /* 10px */
+  --r-pill: 999px;
+
+  --edge: 1px;
+  --tap: 200ms cubic-bezier(.4, 0, .2, 1);
+
+  /* Updated before first paint by index.html. The workspace retains its
+     desktop geometry and scales as one unit when the viewport is smaller. */
+  --app-scale: 1;
+  --app-width: 100vw;
+  --app-height: 100dvh;
+
+  /* light palette. The greys are spaced far enough apart that a panel, a
+     sunken column and a header read as three different surfaces. */
+  --bg:           #ffffff;
+  --bg-sunken:    #eef1f5;
+  --surface:      #ffffff;
+  --surface-hi:   #e3e8ef;
+  --border:       #c3ccd8;
+  --border-hi:    #94a0b0;
+  --text:         #111827;
+  --text-mute:    #4b5563;
+  --text-faint:   #5a6674;
+  --accent:       #2563eb;
+  --accent-hi:    #1d4ed8;
+  --accent-fg:    #ffffff;
+  --accent-wash:  #dce9ff;
+  --danger:       #dc2626;
+  --danger-hi:    #b91c1c;
+  --danger-wash:  #fef2f2;
+  --ok:           #15803d;
+  --ok-solid:     #14733c;
+  --warn:         #b45309;
+  --warn-wash:    #fffbeb;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg:           #0a0a0a;
+    --bg-sunken:    #000000;
+    --surface:      #141414;
+    --surface-hi:   #1e1e1e;
+    --border:       #262626;
+    --border-hi:    #383838;
+    --text:         #f5f5f5;
+    --text-mute:    #9a9a9a;
+    --text-faint:   #8a8a8a;
+    --accent:       #3b82f6;
+    --accent-hi:    #60a5fa;
+    --accent-fg:    #ffffff;
+    --accent-wash:  #101c33;
+    --danger:       #ef4444;
+    --danger-hi:    #f87171;
+    --danger-wash:  #2a1315;
+    --ok:           #4ade80;
+    --ok-solid:     #1a7a45;
+    --warn:         #fbbf24;
+    --warn-wash:    #251c09;
+  }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg:           #0a0a0a;
+  --bg-sunken:    #000000;
+  --surface:      #141414;
+  --surface-hi:   #1e1e1e;
+  --border:       #262626;
+  --border-hi:    #383838;
+  --text:         #f5f5f5;
+  --text-mute:    #9a9a9a;
+  --text-faint:   #8a8a8a;
+  --accent:       #3b82f6;
+  --accent-hi:    #60a5fa;
+  --accent-fg:    #ffffff;
+  --accent-wash:  #101c33;
+  --danger:       #ef4444;
+  --danger-hi:    #f87171;
+  --danger-wash:  #2a1315;
+  --ok:           #4ade80;
+  --ok-solid:     #1a7a45;
+  --warn:         #fbbf24;
+  --warn-wash:    #251c09;
+}
+
+/* theme-conditional elements ------------------------------- */
+:root .dark-only { display: none; }
+:root .light-only { display: block; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .dark-only  { display: block; }
+  :root:not([data-theme="light"]) .light-only { display: none; }
+}
+:root[data-theme="light"] { color-scheme: light; }
+
+:root[data-theme="dark"] .dark-only  { display: block; }
+:root[data-theme="dark"] .light-only { display: none; }
+
+/* base ------------------------------------------------------ */
+*, *::before, *::after { box-sizing: border-box; }
+
+/* the hidden attribute is how this app shows and hides whole sections, and a
+   plain display rule would quietly outrank it */
+[hidden] { display: none !important; }
+
+html, body {
+  height: 100%;
+  overflow: hidden;
+}
+
+/* iOS Safari inflates text in landscape without this */
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg-sunken);
+  color: var(--text);
+  font: 400 var(--t-md)/1.5 var(--font);
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Lucide icons. They are drawn on a 24 unit grid at stroke width 2, so the
+   weight holds at whatever size a rule below gives them. Block display keeps
+   the wrapper span from adding a baseline gap under the icon. */
+svg {
+  display: block;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.ico { display: inline-flex; }
+
+/* Scrollbars ------------------------------------------------
+   The default light track is almost white and disappears against the panel,
+   so every scrolling area gets its own from the palette. Newer browsers use
+   the standard properties and ignore the webkit rules below them. */
+.col-body, .bars, .config, .modal-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--text-faint) var(--surface-hi);
+}
+
+.col-body::-webkit-scrollbar,
+.bars::-webkit-scrollbar,
+.config::-webkit-scrollbar,
+.modal-scroll::-webkit-scrollbar { width: 0.625rem; }
+
+.col-body::-webkit-scrollbar-track,
+.bars::-webkit-scrollbar-track,
+.config::-webkit-scrollbar-track,
+.modal-scroll::-webkit-scrollbar-track { background: var(--surface-hi); }
+
+.col-body::-webkit-scrollbar-thumb,
+.bars::-webkit-scrollbar-thumb,
+.config::-webkit-scrollbar-thumb,
+.modal-scroll::-webkit-scrollbar-thumb {
+  background: var(--text-faint);
+  border: 2px solid var(--surface-hi);
+  border-radius: var(--r-pill);
+}
+
+/* A mouse click still focuses the element, and the browser's own default
+   outline does not know about :focus-visible - it has to be told off
+   explicitly, or a click leaves a ring behind that only a keyboard press
+   should draw. */
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--r);
+}
+
+/* app shell -------------------------------------------------
+   This is a desktop workspace. Rather than changing its composition on a
+   narrow or short viewport, the viewport fitter scales the complete shell so
+   every panel remains visible and in the same relative position. */
+.app {
+  display: flex;
+  flex-direction: column;
+  width: var(--app-width);
+  height: var(--app-height);
+  min-width: 60rem;
+  min-height: 40rem;
+  background: var(--bg);
+  transform: scale(var(--app-scale));
+  transform-origin: top left;
+}
+
+/* header ---------------------------------------------------- */
+.hdr {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  height: 3rem;
+  padding-inline: var(--s4);
+  border-bottom: var(--edge) solid var(--border);
+}
+
+.logo {
+  height: 1.875rem;
+  width: auto;
+  max-width: 100%;
+  min-width: 0;
+  object-fit: contain;
+  display: block;
+}
+
+.hdr-actions {
+  flex: none;
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+}
+
+/* The connect button always carries a visible border; a transparent one on
+   its neighbours until hover made the row read as unevenly spaced even
+   though the gap itself was the same. */
+.hdr-actions .icon-btn {
+  border-color: var(--border);
+}
+
+/* connect ---------------------------------------------------
+   State is the colour of the button, so there is no label to read. */
+/* connected is a colour, so there is no separate status to read. The fill is
+   deeper than the green used for text, so it carries a white label without
+   glaring. */
+.conn-btn.live {
+  border-color: var(--ok-solid);
+  background: var(--ok-solid);
+  color: var(--accent-fg);
+}
+
+.conn-btn.live:hover:not(:disabled) {
+  border-color: var(--danger);
+  background: var(--danger);
+}
+
+/* Web Bluetooth is missing entirely. Looks disabled, same as :disabled, but
+   stays clickable so a click can explain why nothing will happen. */
+.conn-btn.unsupported {
+  opacity: .45;
+  cursor: not-allowed;
+}
+
+/* status bar ------------------------------------------------ */
+
+.dot.live { background: var(--ok); }
+
+/* two columns -----------------------------------------------
+   Profiles on the left, the chosen profile's commands on the right, both in
+   view at once. The rail is deliberately narrow: it is a place to pick from,
+   not to read. */
+.cols {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  /* the rail keeps its proportions and never pushes the page wider, however
+     large the reader's font is */
+  /* wide enough for a full 16 character name plus its count and buttons */
+  grid-template-columns: clamp(12rem, 22%, 17rem) 1fr;
+}
+
+/* The title does not scroll, so the scrollbar starts underneath it rather
+   than running up behind it. */
+.col {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.col-body {
+  flex: 1;
+  min-height: 0;
+  /* Rows carry their own borders, so an inset under the title bar reads as a
+     gap in the list rather than as breathing room. They start flush; the tail
+     keeps a little room so the last row is not jammed against the edge. */
+  padding-block: 0 var(--s3);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  /* reserve the track so it never lands on top of a row's buttons */
+  scrollbar-gutter: stable;
+}
+
+.col-profiles {
+  border-right: var(--edge) solid var(--border);
+  background: var(--bg-sunken);
+}
+
+.col-empty {
+  margin: 0;
+  padding: var(--s4);
+  font-size: var(--t-sm);
+  color: var(--text-faint);
+}
+
+/* a channel is picked the same way a profile is, and the gestures on the
+   right follow whichever one is selected */
+
+.chan-row.active { background: var(--accent-wash); }
+.chan-row.active .chan-nm { color: var(--accent); }
+
+/* a rail row is tighter than a command row, and has no radio */
+
+.row-sm.active .row-nm { font-weight: 600; }
+
+.list { margin: 0; padding: 0; list-style: none; }
+
+/* list ------------------------------------------------------ */
+.list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  height: 2.5rem;
+  padding-inline: var(--s4);
+  border-bottom: var(--edge) solid var(--border);
+  cursor: pointer;
+  transition: background var(--tap);
+}
+
+.row:hover { background: var(--surface-hi); }
+.row.active { background: var(--accent-wash); }
+
+.radio {
+  flex: none;
+  width: 0.875rem;
+  height: 0.875rem;
+  border: var(--edge) solid var(--border-hi);
+  border-radius: 50%;
+  transition: border-color var(--tap);
+}
+
+.row.active .radio {
+  border-color: var(--accent);
+  border-width: 0.25rem;
+}
+
+.row-nm {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--t-md);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.row.active .row-nm { font-weight: 500; }
+
+/* Locked disables every way of editing rather than hiding it, so the row
+   never changes shape and the reason it will not respond is right there
+   under the pointer. */
+.row-actions {
+  flex: none;
+  display: flex;
+  gap: var(--s1);
+}
+
+/* records into the slot it sits on */
+.add-btn {
+  flex: none;
+  border-color: var(--border-hi);
+  color: var(--accent);
+}
+
+.add-btn:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: var(--accent-wash);
+  color: var(--accent);
+}
+
+/* Ten fixed slots, two across and five down. */
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.grid .row { border-right: var(--edge) solid var(--border); }
+.grid .row:nth-child(even) { border-right: 0; }
+
+/* Locked is read only, so the lists say so by sitting back a little. The
+   send buttons stay at full strength, because firing is the whole point of
+   being locked. */
+.cols.locked .row-nm,
+.cols.locked .badge { opacity: .6; }
+
+/* a slot with nothing in it yet reads as waiting, not as broken */
+.row.blank .row-nm { color: var(--text-faint); }
+
+/* muscle trigger feedback ------------------------------------
+   The board drives these. A step marks the row the selection moved
+   to, a fire flashes the row and the button together. */
+.row.stepped {
+  animation: row-step 320ms ease-out;
+}
+
+@keyframes row-step {
+  from { box-shadow: inset 0.1875rem 0 0 var(--accent); }
+  to   { box-shadow: inset 0.1875rem 0 0 transparent; }
+}
+
+.row.fired {
+  animation: row-fire 480ms ease-out;
+}
+
+@keyframes row-fire {
+  from { background: var(--accent); }
+  to   { background: transparent; }
+}
+
+.btn-fire.firing {
+  animation: fire-pulse 480ms ease-out;
+}
+
+@keyframes fire-pulse {
+  0%   { transform: scale(1); }
+  35%  { transform: scale(1.03); }
+  100% { transform: scale(1); }
+}
+
+/* footer ---------------------------------------------------- */
+.ftr {
+  flex: none;
+  padding: var(--s3) var(--s4) calc(var(--s3) + env(safe-area-inset-bottom));
+  border-top: var(--edge) solid var(--border);
+  background: var(--surface-hi);
+}
+
+.active-nm {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--t-md);
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.active-nm.none {
+  font-weight: 400;
+  color: var(--text-faint);
+}
+
+/* buttons --------------------------------------------------- */
+.btn {
+  height: var(--h-btn);
+  padding-inline: var(--s3);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s2);
+  border: var(--edge) solid var(--border-hi);
+  border-radius: var(--r);
+  background: var(--surface);
+  color: var(--text);
+  font: 500 var(--t-md)/1 var(--font);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background var(--tap), border-color var(--tap), opacity var(--tap);
+}
+
+.btn:hover:not(:disabled) {
+  background: var(--surface-hi);
+  border-color: var(--text-faint);
+}
+
+.btn:active:not(:disabled) { transform: translateY(1px); }
+
+.btn:disabled {
+  opacity: .45;
+  cursor: not-allowed;
+}
+
+.btn svg { width: 0.9375rem; height: 0.9375rem; }
+
+.btn-sm {
+  height: var(--h-icon);
+  font-size: var(--t-sm);
+}
+
+.btn-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-fg);
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--accent-hi);
+  border-color: var(--accent-hi);
+}
+
+.btn-danger {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: #fff;
+}
+
+.btn-danger:hover:not(:disabled) {
+  background: var(--danger-hi);
+  border-color: var(--danger-hi);
+}
+
+.btn-fire {
+  width: 100%;
+  height: var(--h-fire);
+  font-size: var(--t-lg);
+}
+
+.btn-fire svg { width: 1.0625rem; height: 1.0625rem; }
+
+/* icon buttons ---------------------------------------------- */
+.icon-btn {
+  position: relative;
+  width: var(--h-icon);
+  height: var(--h-icon);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: var(--edge) solid transparent;
+  border-radius: var(--r);
+  background: transparent;
+  color: var(--text-mute);
+  cursor: pointer;
+  transition: background var(--tap), color var(--tap), border-color var(--tap), opacity var(--tap);
+}
+
+/* A button's own hover has to read as its own, even sitting inside a row
+   that turns the same shade of surface-hi on hover, so it goes one step
+   further to var(--border). */
+.icon-btn:hover:not(:disabled):not(.locked-out) {
+  background: var(--border);
+  border-color: var(--border-hi);
+  color: var(--text);
+}
+
+.icon-btn:disabled {
+  opacity: .35;
+  cursor: not-allowed;
+}
+
+/* Looks disabled while locked, but stays clickable so it can say why. */
+.icon-btn.locked-out {
+  opacity: .35;
+  cursor: not-allowed;
+}
+
+/* A couple of quick blinks on the lock icon when a locked edit is attempted,
+   pointing at the way to actually unlock. */
+@keyframes lock-hint {
+  0%, 100% { opacity: 1; }
+  50% { opacity: .25; }
+}
+
+#btn-lock.hint {
+  animation: lock-hint 200ms ease-in-out 2;
+}
+
+.icon-btn svg { width: 1rem; height: 1rem; }
+
+.icon-btn-sm {
+  width: var(--h-icon-sm);
+  height: var(--h-icon-sm);
+}
+
+.icon-btn-sm svg { width: 0.875rem; height: 0.875rem; }
+
+.icon-btn.danger:hover:not(:disabled) {
+  background: var(--danger-wash);
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+/* touch targets ---------------------------------------------
+   On a finger, WCAG asks for at least 44px. Growing the buttons
+   would change the layout, so grow only the invisible hit area
+   and leave every painted pixel where it is. */
+@media (pointer: coarse) {
+  .icon-btn::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 2.75rem;
+    height: 2.75rem;
+    transform: translate(-50%, -50%);
+  }
+
+  /* iOS Safari zooms the whole page when a focused input is
+     under 16px. A slightly larger field beats a lurching page. */
+  .input { font-size: 1rem; }
+}
+
+/* overlay and modal ----------------------------------------- */
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: var(--s4);
+  background: rgba(0, 0, 0, .5);
+}
+
+.overlay.show { display: flex; }
+
+.modal {
+  width: 100%;
+  max-width: 25rem;
+  max-height: calc(100dvh - var(--s7));
+  display: flex;
+  flex-direction: column;
+  border: var(--edge) solid var(--border);
+  border-radius: var(--r-lg);
+  background: var(--bg);
+  overflow: hidden;
+}
+
+.modal-lg { max-width: 30rem; }
+
+.modal-hdr {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  height: 3rem;
+  padding-inline: var(--s4);
+  border-bottom: var(--edge) solid var(--border);
+}
+
+.modal-ttl {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-size: var(--t-lg);
+  font-weight: 600;
+}
+
+.modal-body {
+  flex: 1;
+  min-height: 0;
+  padding: var(--s4);
+}
+
+.modal-scroll {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.modal-ftr {
+  flex: none;
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--s2);
+  padding: var(--s3) var(--s4);
+  border-top: var(--edge) solid var(--border);
+  background: var(--surface-hi);
+}
+
+.modal-ftr .btn { min-width: 5.25rem; }
+
+/* listening -------------------------------------------------- */
+.modal-sm { max-width: 21.25rem; }
+
+.listen {
+  padding: var(--s6) var(--s4) var(--s5);
+  text-align: center;
+}
+
+.waves {
+  position: relative;
+  width: 7rem;
+  height: 7rem;
+  margin: 0 auto var(--s5);
+}
+
+.wave,
+.wave-core {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.wave-core {
+  width: 0.75rem;
+  height: 0.75rem;
+  background: var(--accent);
+}
+
+.wave {
+  width: 1.25rem;
+  height: 1.25rem;
+  border: var(--edge) solid var(--accent);
+  opacity: 0;
+  animation: ripple 2.4s cubic-bezier(0, .35, .5, 1) infinite;
+}
+
+.wave:nth-child(2) { animation-delay: .8s; }
+.wave:nth-child(3) { animation-delay: 1.6s; }
+
+@keyframes ripple {
+  0%   { transform: translate(-50%, -50%) scale(1);   opacity: .85; }
+  70%  { opacity: .1; }
+  100% { transform: translate(-50%, -50%) scale(5.4); opacity: 0; }
+}
+
+.listen-ttl {
+  margin: 0 0 var(--s2);
+  font-size: var(--t-lg);
+  font-weight: 600;
+}
+
+.listen-sub {
+  margin: 0 auto;
+  max-width: 30ch;
+  text-align: left;
+}
+
+.progress {
+  height: 0.1875rem;
+  margin-top: var(--s5);
+  border-radius: var(--r-pill);
+  background: var(--surface-hi);
+  overflow: hidden;
+}
+
+.progress-bar {
+  display: block;
+  height: 100%;
+  width: 100%;
+  border-radius: var(--r-pill);
+  background: var(--accent);
+}
+
+.listen-time {
+  display: block;
+  margin-top: var(--s2);
+  font: 500 var(--t-xs)/1 var(--mono);
+  color: var(--text-faint);
+}
+
+/* form ------------------------------------------------------ */
+.field {
+  display: block;
+  margin-top: var(--s4);
+}
+
+.field:first-child { margin-top: 0; }
+
+.field-lbl {
+  display: block;
+  margin-bottom: var(--s2);
+  font-size: var(--t-sm);
+  font-weight: 500;
+  color: var(--text-mute);
+}
+
+.input {
+  width: 100%;
+  height: var(--h-btn);
+  padding-inline: var(--s3);
+  border: var(--edge) solid var(--border-hi);
+  border-radius: var(--r);
+  background: var(--surface);
+  color: var(--text);
+  font: 400 var(--t-md)/1 var(--font);
+  transition: border-color var(--tap), box-shadow var(--tap);
+}
+
+.input::placeholder { color: var(--text-faint); }
+
+.input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-wash);
+}
+
+.input.invalid {
+  border-color: var(--danger);
+  box-shadow: 0 0 0 3px var(--danger-wash);
+}
+
+.field-hint {
+  display: block;
+  margin-top: 0.375rem;
+  font-size: var(--t-xs);
+  color: var(--text-faint);
+}
+
+/* content ---------------------------------------------------- */
+.prose {
+  margin: 0 0 var(--s3);
+  font-size: var(--t-sm);
+  color: var(--text-mute);
+}
+
+.prose:last-child { margin-bottom: 0; }
+.prose b { color: var(--text); font-weight: 500; }
+
+.meta {
+  margin: 0 0 var(--s3);
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0;
+  border: var(--edge) solid var(--border);
+  border-radius: var(--r);
+  overflow: hidden;
+  font-size: var(--t-sm);
+}
+
+.meta:last-child { margin-bottom: 0; }
+
+.meta dt {
+  padding: var(--s2) var(--s3);
+  border-bottom: var(--edge) solid var(--border);
+  background: var(--surface-hi);
+  color: var(--text-mute);
+  white-space: nowrap;
+}
+
+.meta dd {
+  margin: 0;
+  padding: var(--s2) var(--s3);
+  border-bottom: var(--edge) solid var(--border);
+  border-left: var(--edge) solid var(--border);
+  overflow-wrap: anywhere;
+}
+
+.meta dt:nth-last-of-type(1),
+.meta dd:nth-last-of-type(1) { border-bottom: 0; }
+
+.steps {
+  margin: 0 0 var(--s3);
+  padding-left: var(--s5);
+  font-size: var(--t-sm);
+  color: var(--text-mute);
+}
+
+.steps li { margin-bottom: var(--s2); }
+.steps li:last-child { margin-bottom: 0; }
+.steps b { color: var(--text); font-weight: 500; }
+
+.info-sec {
+  padding-bottom: var(--s4);
+  margin-bottom: var(--s4);
+  border-bottom: var(--edge) solid var(--border);
+}
+
+.info-sec:last-child {
+  padding-bottom: 0;
+  margin-bottom: 0;
+  border-bottom: 0;
+}
+
+.info-ttl {
+  margin: 0 0 var(--s3);
+  font-size: var(--t-md);
+  font-weight: 600;
+}
+
+.danger-zone .info-ttl { color: var(--danger); }
+
+/* notice ----------------------------------------------------- */
+.notice {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s2);
+  margin-bottom: var(--s4);
+  padding: var(--s3);
+  border: var(--edge) solid var(--border);
+  border-radius: var(--r);
+  background: var(--warn-wash);
+  font-size: var(--t-sm);
+  color: var(--text);
+}
+
+.notice svg {
+  flex: none;
+  width: 0.9375rem;
+  height: 0.9375rem;
+  margin-top: 0.125rem;
+  color: var(--warn);
+}
+
+/* toast ------------------------------------------------------ */
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--s6) + env(safe-area-inset-bottom));
+  z-index: 60;
+  transform: translate(-50%, 0.5rem);
+  max-width: calc(100vw - var(--s7));
+  padding: var(--s2) var(--s4);
+  border: var(--edge) solid var(--border-hi);
+  border-radius: var(--r);
+  background: var(--surface);
+  color: var(--text);
+  font-size: var(--t-sm);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--tap), transform var(--tap);
+}
+
+.toast.show {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+.toast.err {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+/* profile rows ----------------------------------------------
+   The command count rides along with the name and steps aside when the
+   rename and delete buttons appear on hover. */
+
+.row:hover .row-badge,
+.row:focus-within .row-badge { opacity: 0; }
+
+@media (hover: none) {
+  .row:hover .row-badge { opacity: 1; }
+}
+
+/* edit bar --------------------------------------------------
+   Only while editing a profile. Rename and record live here, because
+   neither belongs in a list you are meant to just pick from. */
+
+.field-inline .field-lbl { flex: none; margin-bottom: 0; }
+.field-inline .input { flex: 1; min-width: 0; }
+
+/* settings panel -------------------------------------------
+   What each channel measures on the left, what its gestures do on the right.
+   Only the channels that are on are listed. */
+.config {
+  flex: none;
+  max-height: 45vh;
+  overflow-y: auto;
+  border-bottom: var(--edge) solid var(--border);
+  background: var(--bg-sunken);
+}
+
+/* firing ----------------------------------------------------
+   Every command carries its own fire button, so nothing has to be selected
+   first. The bar at the bottom is the reachable version of the same thing on
+   a phone, where the row buttons are a small target. */
+.fire-btn {
+  flex: none;
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-fg);
+}
+
+.fire-btn:hover:not(:disabled) {
+  border-color: var(--accent-hi);
+  background: var(--accent-hi);
+  color: var(--accent-fg);
+}
+
+/* only worth the space where the row buttons are hard to hit */
+
+@media (max-width: 34em) {
+  .ftr-fire { display: block; }
+}
+
+/* what just happened, beside the level that caused it */
+
+/* titled bars -----------------------------------------------
+   Controls, Profiles and Commands all use this, so the three line up across
+   the window at the same height and weight, and their text starts on the
+   same vertical line as the rows underneath. */
+.section-hdr,
+.col-ttl {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  min-height: 2.5rem;
+  padding-inline: var(--s4);
+  border-bottom: var(--edge) solid var(--border);
+  background: var(--surface-hi);
+  font-size: var(--t-xs);
+  font-weight: 600;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  color: var(--text-mute);
+}
+
+.col-ttl {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bar-ttl { white-space: nowrap; }
+
+/* anything belonging to a bar sits at its right end */
+.bar-tools {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+}
+
+.notch-lbl {
+  font-size: var(--t-xs);
+  font-weight: 600;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  color: var(--text-mute);
+  white-space: nowrap;
+}
+
+/* controls --------------------------------------------------
+   One row per control: what it is, which channel and filter feed it, which
+   gesture drives it, and the level behind that gesture. */
+.controls {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s1);
+  padding-block: var(--s3);
+  border-bottom: var(--edge) solid var(--border);
+  background: var(--bg-sunken);
+}
+
+.ctl-row {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  height: 2.5rem;
+  padding-inline: var(--s4);
+  transition: background var(--tap);
+}
+
+.ctl-nm {
+  flex: none;
+  /* wide enough for "Select/Shoot IR", the longest of the four labels */
+  width: clamp(5rem, 16%, 9rem);
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  font-size: var(--t-md);
+  font-weight: 500;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.ctl-nm svg {
+  flex: none;
+  width: 0.875rem;
+  height: 0.875rem;
+  color: var(--text-mute);
+}
+
+.ctl-nm span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ctl-row.fired .ctl-nm svg { color: var(--accent); }
+
+/* the assigned gesture is already named in the dropdown, so the row itself
+   is what reports that it just ran */
+.ctl-row.fired { background: var(--accent-wash); }
+.ctl-row.fired .ctl-nm { color: var(--accent); }
+
+.ctl-row .select {
+  flex: none;
+  height: var(--h-icon-sm);
+  font-size: var(--t-sm);
+}
+
+.sel-ch  { width: clamp(3.25rem, 8%, 4.5rem); }
+.sel-exg { width: clamp(3.5rem, 9%, 5rem); }
+.sel-trig { width: clamp(5.5rem, 18%, 10rem); }
+
+.ctl-level {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+}
+
+.bar-val {
+  flex: none;
+  width: 2.75rem;
+  text-align: left;
+  font: 500 var(--t-xs)/1 var(--mono);
+  color: var(--text-mute);
+}
+
+/* the range input's own track carries the live level, set from script */
+.level {
+  flex: 1;
+  min-width: 0;
+  height: 0.4375rem;
+  margin: 0;
+  -webkit-appearance: none;
+  appearance: none;
+  border-radius: var(--r-pill);
+  background: var(--surface-hi);
+  cursor: pointer;
+}
+
+.level::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 0.875rem;
+  height: 0.875rem;
+  border-radius: 50%;
+  background: var(--text);
+  border: 2px solid var(--bg-sunken);
+  cursor: grab;
+}
+
+/* a control watching nothing keeps its slider, parked and inert */
+.level:disabled {
+  opacity: .45;
+  cursor: not-allowed;
+}
+
+.level::-moz-range-thumb {
+  width: 0.875rem;
+  height: 0.875rem;
+  border: 2px solid var(--bg-sunken);
+  border-radius: 50%;
+  background: var(--text);
+  cursor: grab;
+}
+
+/* unlocking is the only thing that turns the pickers on */
+.select:disabled {
+  opacity: .5;
+  cursor: not-allowed;
+}
+
+/* two states, so a segmented switch rather than a list */
+.switch {
+  display: inline-flex;
+  border: var(--edge) solid var(--border-hi);
+  border-radius: var(--r);
+  overflow: hidden;
+}
+
+.switch button {
+  height: var(--h-icon-sm);
+  padding-inline: var(--s3);
+  border: 0;
+  background: var(--surface);
+  color: var(--text-mute);
+  font: 500 var(--t-sm)/1 var(--font);
+  cursor: pointer;
+  transition: background var(--tap), color var(--tap);
+}
+
+.switch button + button { border-left: var(--edge) solid var(--border-hi); }
+.switch button:hover:not(:disabled) { background: var(--surface-hi); }
+
+.switch button.on {
+  background: var(--accent);
+  color: var(--accent-fg);
+}
+
+.switch button:disabled {
+  opacity: .5;
+  cursor: not-allowed;
+}
+
+.icon-btn.on {
+  background: var(--accent-wash);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* control mapping -------------------------------------------- */
+
+.select {
+  flex: none;
+  width: 9.5rem;
+  height: var(--h-btn);
+  padding-inline: var(--s2);
+  border: var(--edge) solid var(--border-hi);
+  border-radius: var(--r);
+  background: var(--surface);
+  color: var(--text);
+  font: 400 var(--t-md)/1 var(--font);
+  cursor: pointer;
+}
+
+.select:hover { border-color: var(--text-faint); }
+
+/* viewport fitting ------------------------------------------
+   Width and height are calculated from the current visual viewport in the
+   small script in index.html. Keeping that logic outside media queries means
+   a browser resize or zoom never switches the workspace into another layout
+   or leaves any part of it outside the viewport. */
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition-duration: 1ms !important; }
+  /* the trigger feedback is decorative, the highlight already moved */
+  .row.stepped, .row.fired, .btn-fire.firing { animation: none; }
+  /* keep the rings as a static halo rather than pulsing */
+  .wave { animation: none; opacity: .25; transform: translate(-50%, -50%) scale(2.6); }
+  .wave:nth-child(2) { transform: translate(-50%, -50%) scale(4); }
+  .wave:nth-child(3) { display: none; }
+}

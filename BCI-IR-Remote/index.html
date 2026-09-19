@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<title>NPG IR Controller</title>
+<link rel="stylesheet" href="css/style.css">
+<script>
+/* Keep the desktop workspace intact and fit it inside the available visual
+   viewport.  This runs before the page paints and updates for resize, browser
+   zoom and mobile viewport changes. */
+(() => {
+  const root = document.documentElement;
+  let frame = 0;
+
+  function fitLayout() {
+    frame = 0;
+    const rem = parseFloat(getComputedStyle(root).fontSize) || 16;
+    const minWidth = 60 * rem;
+    const minHeight = 40 * rem;
+    const visual = window.visualViewport;
+    const width = Math.max(1, Math.min(window.innerWidth, visual ? visual.width : window.innerWidth));
+    const height = Math.max(1, Math.min(window.innerHeight, visual ? visual.height : window.innerHeight));
+    const scale = Math.min(1, width / minWidth, height / minHeight);
+
+    root.style.setProperty('--app-scale', scale.toFixed(6));
+    root.style.setProperty('--app-width', Math.max(minWidth, width / scale) + 'px');
+    root.style.setProperty('--app-height', Math.max(minHeight, height / scale) + 'px');
+  }
+
+  function scheduleFit() {
+    if (!frame) frame = requestAnimationFrame(fitLayout);
+  }
+
+  fitLayout();
+  window.addEventListener('resize', scheduleFit, { passive: true });
+  window.visualViewport?.addEventListener('resize', scheduleFit, { passive: true });
+})();
+</script>
+</head>
+<body>
+
+<div class="app">
+
+  <header class="hdr">
+    <img class="logo light-only" src="assets/udl_logo_black.png" alt="Upside Down Labs">
+    <img class="logo dark-only" src="assets/udl_logo_white.png" alt="Upside Down Labs">
+    <div class="hdr-actions">
+      <button class="btn btn-sm conn-btn" id="btn-conn" title="Connect">
+        <span class="ico" data-icon="bluetooth"></span>
+        <span id="conn-txt">Connect</span>
+      </button>
+      <button class="icon-btn" id="btn-lock" title="Unlock to configure" aria-label="Unlock to configure" disabled>
+        <span class="ico" data-icon="lock"></span>
+      </button>
+      <button class="icon-btn" id="btn-theme" title="Toggle theme" aria-label="Toggle theme">
+        <span class="ico light-only" data-icon="sun"></span>
+        <span class="ico dark-only" data-icon="moon"></span>
+      </button>
+      <button class="icon-btn" id="btn-info" title="How to use" aria-label="How to use">
+        <span class="ico" data-icon="info"></span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Settings only: what each channel measures, and what its gestures do. -->
+  <div class="section-hdr">
+    <span class="bar-ttl">Controls</span>
+    <div class="bar-tools">
+      <span class="notch-lbl">Mains notch</span>
+      <div class="switch" id="notch" role="group" aria-label="Mains notch">
+        <button type="button" data-hz="50">50 Hz</button>
+        <button type="button" data-hz="60">60 Hz</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- One row per control: what it is, which channel and filter feed it,
+       which gesture drives it, and the level that gesture is measured on. -->
+  <div class="controls" id="controls"></div>
+
+  <main class="cols">
+    <div class="col col-profiles">
+      <div class="col-ttl">
+        <span>Remotes</span>
+      </div>
+      <div class="col-body">
+        <ul class="list" id="profiles"></ul>
+      </div>
+    </div>
+
+    <div class="col col-commands">
+      <div class="col-ttl">
+        <span id="cmd-ttl">Commands</span>
+      </div>
+      <div class="col-body">
+        <ul class="grid" id="list"></ul>
+        <p class="col-empty" id="cmd-empty"></p>
+      </div>
+    </div>
+  </main>
+
+
+  <!-- Phones only. Every command row has its own fire button, but they are
+       a small target, so the selected one gets a full width button too. -->
+
+</div>
+
+
+<!-- Listening -->
+<div class="overlay" id="ov-listening">
+  <div class="modal modal-sm">
+    <div class="modal-body listen">
+      <div class="waves" aria-hidden="true">
+        <span class="wave"></span>
+        <span class="wave"></span>
+        <span class="wave"></span>
+        <span class="wave-core"></span>
+      </div>
+      <h2 class="listen-ttl">Listening for a signal</h2>
+      <p class="prose listen-sub">Point your remote at the board and press any key.</p>
+      <div class="progress"><span class="progress-bar" id="listen-bar"></span></div>
+      <span class="listen-time" id="listen-time"></span>
+    </div>
+    <div class="modal-ftr">
+      <button class="btn" id="listen-cancel">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Capture -->
+<div class="overlay" id="ov-capture">
+  <div class="modal">
+    <div class="modal-hdr">
+      <h2 class="modal-ttl" id="cap-ttl">IR signal captured</h2>
+      <button class="icon-btn icon-btn-sm" data-close="ov-capture" aria-label="Close">
+        <span class="ico" data-icon="x"></span>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div id="cap-dup"></div>
+      <dl class="meta" id="cap-meta"></dl>
+      <label class="field">
+        <span class="field-lbl">Name</span>
+        <input class="input" id="cap-input" maxlength="16" placeholder="TV Power" autocomplete="off">
+        <span class="field-hint"><span id="cap-count">0</span>/16 characters</span>
+      </label>
+    </div>
+    <div class="modal-ftr" id="cap-actions"></div>
+  </div>
+</div>
+
+<!-- Rename -->
+<div class="overlay" id="ov-rename">
+  <div class="modal">
+    <div class="modal-hdr">
+      <h2 class="modal-ttl" id="ren-ttl">Rename command</h2>
+      <button class="icon-btn icon-btn-sm" data-close="ov-rename" aria-label="Close">
+        <span class="ico" data-icon="x"></span>
+      </button>
+    </div>
+    <div class="modal-body">
+      <label class="field">
+        <span class="field-lbl">Name</span>
+        <input class="input" id="ren-input" maxlength="16" autocomplete="off">
+        <span class="field-hint"><span id="ren-count">0</span>/16 characters</span>
+      </label>
+    </div>
+    <div class="modal-ftr">
+      <button class="btn" data-close="ov-rename">Cancel</button>
+      <button class="btn btn-primary" id="ren-save">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Confirm -->
+<div class="overlay" id="ov-confirm">
+  <div class="modal">
+    <div class="modal-hdr">
+      <h2 class="modal-ttl" id="cfm-ttl">Are you sure?</h2>
+      <button class="icon-btn icon-btn-sm" data-close="ov-confirm" aria-label="Close">
+        <span class="ico" data-icon="x"></span>
+      </button>
+    </div>
+    <div class="modal-body">
+      <p class="prose" id="cfm-body"></p>
+    </div>
+    <div class="modal-ftr">
+      <button class="btn" id="cfm-no">Cancel</button>
+      <button class="btn btn-danger" id="cfm-ok">Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- Info -->
+<div class="overlay" id="ov-info">
+  <div class="modal modal-lg">
+    <div class="modal-hdr">
+      <h2 class="modal-ttl">How to use</h2>
+      <button class="icon-btn icon-btn-sm" data-close="ov-info" aria-label="Close">
+        <span class="ico" data-icon="x"></span>
+      </button>
+    </div>
+    <div class="modal-body modal-scroll">
+
+      <section class="info-sec">
+        <h3 class="info-ttl">Getting started</h3>
+        <ol class="steps">
+          <li>Power the board and press <b>Connect</b>. Pick <b>NPG-IR</b> from the browser dialog.</li>
+          <li>Press the lock icon to unlock, then press <b>+</b> on a remote and name it.</li>
+          <li>Open the remote, press <b>+</b> on a command, then point a real remote at the board and press a key.</li>
+          <li>Name the capture and save it. Lock again when you're done setting up.</li>
+          <li>Press a command's send button to fire it.</li>
+        </ol>
+      </section>
+
+      <section class="info-sec">
+        <h3 class="info-ttl">Muscle and brain control</h3>
+        <p class="prose">Open <b>Controls</b> in the header to pick a channel, a filter and a gesture for each of the four actions. The bar beside each one shows its live level, and the slider sets the threshold that counts as a gesture: put it just above your resting level and below a deliberate one.</p>
+      </section>
+
+      <section class="info-sec">
+        <h3 class="info-ttl">Requirements</h3>
+        <p class="prose">Web Bluetooth works in Chrome and Edge on desktop and Android. Firefox and Safari do not support it. On Android, Location must be on for Bluetooth scanning.</p>
+      </section>
+
+      <section class="info-sec danger-zone">
+        <h3 class="info-ttl">Erase all</h3>
+        <p class="prose">Removes every remote, command and waveform from the board. This cannot be undone.</p>
+        <button class="btn btn-danger" id="btn-wipe" disabled>Erase everything</button>
+      </section>
+
+    </div>
+  </div>
+</div>
+
+<!-- Unsupported browser -->
+<div class="overlay" id="ov-browser-warning">
+  <div class="modal modal-sm">
+    <div class="modal-hdr">
+      <h2 class="modal-ttl">Browser not supported</h2>
+      <button class="icon-btn icon-btn-sm" data-close="ov-browser-warning" aria-label="Close">
+        <span class="ico" data-icon="x"></span>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div class="notice">
+        <span class="ico" data-icon="triangle-alert"></span>
+        <span>This browser does not support to Bluetooth devices. Open this page in any Chromium based browser like Chrome, Brave or Edge to connect your NPG-Lite.</span>
+      </div>
+    </div>
+    <div class="modal-ftr">
+      <button class="btn btn-primary" data-close="ov-browser-warning">Got it</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status"></div>
+
+<script src="js/icons.js"></script>
+<script src="js/ble.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
