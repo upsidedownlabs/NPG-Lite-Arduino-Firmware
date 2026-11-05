@@ -1,0 +1,1095 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>NPG Lite - Calibration Console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    /* ---- Instrument palette: graphite chassis, brass/gold calibration signal, cool cyan counter-channel ---- */
+    --bg-void: #090b10;
+    --bg-void-2: #0d1017;
+    --bg-panel: rgba(19, 23, 31, 0.72);
+    --bg-raised: rgba(30, 35, 46, 0.55);
+    --bg-raised-hover: rgba(42, 48, 62, 0.8);
+    --hairline: rgba(255, 255, 255, 0.07);
+    --hairline-strong: rgba(255, 255, 255, 0.14);
+    --hairline-accent: rgba(224, 168, 76, 0.35);
+
+    --signal: #45D8C6;          /* cyan channel - left / steer-left / secondary readout */
+    --signal-glow: rgba(69, 216, 198, 0.22);
+    --amber: #E0A84C;           /* brass channel - primary / right / drive states */
+    --amber-glow: rgba(224, 168, 76, 0.24);
+    --danger: #FF6459;
+    --danger-glow: rgba(255, 100, 89, 0.22);
+
+    --text-primary: #EEF2F7;
+    --text-muted: #93A0B5;
+    --text-faint: #545F72;
+
+    --font-display: 'Space Grotesk', sans-serif;
+    --font-body: 'Inter', sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+
+    --radius-lg: 18px;
+    --radius-md: 12px;
+    --radius-sm: 8px;
+    --shadow-main: 0 24px 48px -18px rgba(0,0,0,0.6);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0; padding: 0;
+    background: var(--bg-void);
+    background-image:
+      radial-gradient(circle at 12% 8%, rgba(224, 168, 76, 0.06) 0%, transparent 42%),
+      radial-gradient(circle at 88% 92%, rgba(69, 216, 198, 0.05) 0%, transparent 45%),
+      repeating-linear-gradient(180deg, rgba(255,255,255,0.012) 0px, rgba(255,255,255,0.012) 1px, transparent 1px, transparent 3px);
+    background-attachment: fixed;
+    color: var(--text-primary);
+    font-family: var(--font-body);
+    -webkit-font-smoothing: antialiased;
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    padding: 24px;
+    overflow: hidden;
+  }
+
+  .console {
+    width: 100%;
+    max-width: 1280px;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  .two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    flex: 1;
+    min-height: 0;
+  }
+  .col {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+  .col-left, .col-right {
+    overflow-y: auto;
+    padding-right: 4px;
+  }
+
+  /* Custom Scrollbar */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--hairline-strong); border-radius: 10px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--text-faint); }
+
+  /* ---------- Identity Header ---------- */
+  .identity {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 18px 26px;
+    background: var(--bg-panel);
+    backdrop-filter: blur(14px);
+    border: 1px solid var(--hairline);
+    border-radius: var(--radius-lg);
+    margin-bottom: 20px;
+    box-shadow: var(--shadow-main);
+    overflow: hidden;
+  }
+  .identity-left { position: relative; display: flex; align-items: center; gap: 14px; z-index: 1; }
+  .led {
+    width: 10px; height: 10px; border-radius: 50%;
+    background: var(--text-faint);
+    box-shadow: none;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    flex-shrink: 0;
+  }
+  .led.on { background: var(--signal); box-shadow: 0 0 12px 2px var(--signal-glow); }
+  .led.warn { background: var(--amber); box-shadow: 0 0 12px 2px var(--amber-glow); }
+
+  .device-name {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 19px;
+    letter-spacing: -0.01em;
+    color: var(--text-primary);
+  }
+  .conn-status { font-size: 12px; color: var(--text-muted); font-family: var(--font-mono); margin-top: 3px; }
+
+  .mac-block {
+    position: relative;
+    z-index: 1;
+    text-align: right;
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+  }
+  .mac-block .mac-value {
+    color: var(--amber);
+    font-size: 13.5px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    margin-top: 4px;
+    text-transform: none;
+  }
+
+  /* ---------- Controls / Connect bar ---------- */
+  .connect-bar { display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+
+  button {
+    font-family: var(--font-body);
+    font-weight: 600;
+    font-size: 13.5px;
+    border-radius: var(--radius-md);
+    padding: 12px 20px;
+    border: 1px solid var(--hairline);
+    background: var(--bg-raised);
+    color: var(--text-primary);
+    cursor: pointer;
+    backdrop-filter: blur(8px);
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+  button:hover:not(:disabled) {
+    border-color: var(--hairline-strong);
+    background: var(--bg-raised-hover);
+    transform: translateY(-1px);
+  }
+  button:active:not(:disabled) { transform: translateY(0); }
+  button:disabled { opacity: 0.35; cursor: not-allowed; }
+
+  button.primary {
+    background: linear-gradient(135deg, var(--amber) 0%, #C98A2E 100%);
+    color: #14100a;
+    border-color: transparent;
+    box-shadow: 0 6px 22px -6px var(--amber-glow);
+  }
+  button.primary:hover:not(:disabled) {
+    background: linear-gradient(135deg, #ecb964 0%, #d69a3e 100%);
+    box-shadow: 0 8px 26px -4px var(--amber-glow);
+  }
+  button.ghost { background: transparent; border-color: transparent; }
+  button.ghost:hover:not(:disabled) { background: var(--bg-raised); border-color: var(--hairline); }
+
+  #startBtn:not(:disabled) {
+    border-color: var(--hairline-accent);
+  }
+
+  /* ---------- Status Header Line ---------- */
+  .status-line {
+    background: var(--bg-panel);
+    backdrop-filter: blur(14px);
+    border: 1px solid var(--hairline);
+    border-radius: var(--radius-lg);
+    padding: 20px 26px;
+    margin-bottom: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    box-shadow: var(--shadow-main);
+  }
+  .status-line .phase-tag {
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--signal);
+    background: var(--signal-glow);
+    padding: 5px 11px;
+    border-radius: 20px;
+    border: 1px solid rgba(69, 216, 198, 0.3);
+    white-space: nowrap;
+  }
+  .status-line .status-text .headline {
+    font-family: var(--font-display);
+    font-size: 19px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+  .status-line .status-text .sub {
+    margin-top: 5px;
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+  .status-line .status-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+  }
+
+  .countdown-badge {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    min-width: 46px;
+    height: 46px;
+    padding: 0 10px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--amber);
+    background: var(--amber-glow);
+    font-family: var(--font-mono);
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--amber);
+    box-shadow: 0 0 16px var(--amber-glow);
+  }
+  .countdown-badge.show { display: flex; }
+  .countdown-badge.tick { animation: countdown-pulse 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+
+  @keyframes countdown-pulse {
+    0% { transform: scale(1.22); }
+    100% { transform: scale(1); }
+  }
+
+  /* ---------- Step Ledger ---------- */
+  .ledger {
+    background: var(--bg-panel);
+    backdrop-filter: blur(14px);
+    border: 1px solid var(--hairline);
+    border-radius: var(--radius-lg);
+    padding: 8px;
+    margin-bottom: 20px;
+    box-shadow: var(--shadow-main);
+  }
+  .step-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 13px 16px;
+    border-radius: var(--radius-md);
+    transition: all 0.2s ease;
+    border: 1px solid transparent;
+  }
+  .step-row.active { background: var(--bg-raised); border-color: var(--hairline-accent); }
+
+  .step-num {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 600;
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    border: 1px solid var(--hairline-strong);
+    background: rgba(255,255,255,0.02);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--text-muted);
+    flex-shrink: 0;
+    transition: all 0.2s ease;
+  }
+  .step-row.active .step-num {
+    border-color: var(--amber);
+    color: var(--amber);
+    background: var(--amber-glow);
+  }
+  .step-row.done .step-num {
+    background: var(--signal);
+    border-color: var(--signal);
+    color: #06201c;
+  }
+  .step-label { font-size: 14px; flex: 1; color: var(--text-muted); font-weight: 500; }
+  .step-row.active .step-label { color: var(--text-primary); font-weight: 600; }
+  .step-row.done .step-label { color: var(--text-primary); opacity: 0.75; }
+
+  .step-mark {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    color: var(--text-faint);
+  }
+  .step-row.active .step-mark { color: var(--amber); }
+  .step-row.done .step-mark { color: var(--signal); }
+
+  /* ---------- Readouts Cards ---------- */
+  .readouts {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  .readout-card {
+    background: var(--bg-panel);
+    backdrop-filter: blur(14px);
+    border: 1px solid var(--hairline);
+    border-radius: var(--radius-md);
+    padding: 16px;
+    box-shadow: var(--shadow-main);
+  }
+  .readout-label {
+    font-size: 10.5px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    margin-bottom: 9px;
+  }
+  .readout-value {
+    font-family: var(--font-mono);
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--text-faint);
+    transition: color 0.3s ease, text-shadow 0.3s ease;
+  }
+  .readout-value.filled { color: var(--signal); text-shadow: 0 0 14px var(--signal-glow); }
+  .readout-value.filled.amber { color: var(--amber); text-shadow: 0 0 14px var(--amber-glow); }
+
+  /* ---------- Controller / Monitor Panel ---------- */
+  .test-panel {
+    background: var(--bg-panel);
+    backdrop-filter: blur(14px);
+    border: 1px solid var(--hairline);
+    border-radius: var(--radius-lg);
+    padding: 24px;
+    box-shadow: var(--shadow-main);
+    transition: opacity 0.3s ease;
+  }
+  .test-panel.disabled { opacity: 0.4; pointer-events: none; }
+
+  .test-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 20px;
+    border-bottom: 1px solid var(--hairline);
+    padding-bottom: 14px;
+  }
+  .scope-title {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 15px;
+    letter-spacing: -0.01em;
+  }
+  .test-substate {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-muted);
+    background: var(--bg-raised);
+    padding: 6px 12px;
+    border-radius: 20px;
+    border: 1px solid var(--hairline);
+  }
+  .test-substate .state-val { color: var(--text-primary); font-weight: 600; }
+  .test-substate .sep { color: var(--text-faint); margin: 0 4px; }
+
+  .dpad {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(3, 70px);
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+  .dpad-cell {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    border-radius: var(--radius-md);
+    border: 1px solid transparent;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .dpad-cell.dpad-fwd, .dpad-cell.dpad-rev, .dpad-cell.dpad-left,
+  .dpad-cell.dpad-right, .dpad-cell.dpad-stop {
+    background: var(--bg-raised);
+    border-color: var(--hairline);
+  }
+  .dpad-icon { font-size: 16px; color: var(--text-faint); transition: color 0.2s ease; }
+  .dpad-text {
+    font-family: var(--font-display);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+    transition: color 0.2s ease;
+  }
+  .dpad-cmd { font-family: var(--font-mono); font-size: 9px; color: var(--text-faint); }
+
+  .dpad-fwd.active, .dpad-rev.active {
+    border-color: var(--amber);
+    background: var(--amber-glow);
+    box-shadow: 0 0 22px var(--amber-glow);
+  }
+  .dpad-fwd.active .dpad-icon, .dpad-rev.active .dpad-icon,
+  .dpad-fwd.active .dpad-text, .dpad-rev.active .dpad-text { color: var(--amber); }
+
+  .dpad-left.active, .dpad-right.active {
+    border-color: var(--signal);
+    background: var(--signal-glow);
+    box-shadow: 0 0 22px var(--signal-glow);
+  }
+  .dpad-left.active .dpad-icon, .dpad-right.active .dpad-icon,
+  .dpad-left.active .dpad-text, .dpad-right.active .dpad-text { color: var(--signal); }
+
+  .dpad-stop.active {
+    border-color: var(--danger);
+    background: var(--danger-glow);
+    box-shadow: 0 0 22px var(--danger-glow);
+  }
+  .dpad-stop.active .dpad-icon, .dpad-stop.active .dpad-text { color: var(--danger); }
+
+  .dpad-cell.pulse { animation: pad-pulse 0.4s ease-out; }
+  @keyframes pad-pulse {
+    0% { transform: scale(0.95); }
+    50% { transform: scale(1.03); }
+    100% { transform: scale(1); }
+  }
+
+  .test-hint {
+    font-size: 12px;
+    color: var(--text-muted);
+    line-height: 1.55;
+    background: rgba(255,255,255,0.02);
+    padding: 11px 14px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--hairline);
+  }
+
+  /* ---------- Footer UI ---------- */
+  .footer-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .hint { font-size: 12px; color: var(--text-muted); line-height: 1.55; }
+  .voice-toggle { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--text-muted); font-weight: 500; }
+
+  .switch {
+    width: 38px; height: 22px; border-radius: 999px;
+    background: var(--bg-raised); border: 1px solid var(--hairline);
+    position: relative; cursor: pointer; flex-shrink: 0;
+    transition: all 0.2s ease;
+  }
+  .switch::after {
+    content: ""; position: absolute; top: 2px; left: 2px;
+    width: 16px; height: 16px; border-radius: 50%;
+    background: var(--text-muted);
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .switch.on { border-color: var(--signal); background: var(--signal-glow); }
+  .switch.on::after { left: 18px; background: var(--signal); box-shadow: 0 0 8px var(--signal-glow); }
+
+  .support-note {
+    background: rgba(255, 100, 89, 0.08);
+    border: 1px solid var(--danger);
+    border-radius: var(--radius-md);
+    padding: 14px 18px;
+    font-size: 13px;
+    color: var(--text-primary);
+    margin-bottom: 20px;
+    display: none;
+  }
+  .support-note.show { display: block; }
+  .support-note strong { color: var(--danger); }
+
+  @media (max-width: 820px) {
+    body { height: auto; overflow: auto; padding: 16px; }
+    .two-col { grid-template-columns: 1fr; }
+    .readouts { grid-template-columns: 1fr; }
+    .mac-block { text-align: left; }
+    .identity { flex-direction: column; align-items: flex-start; }
+  }
+</style>
+</head>
+<body>
+
+<div class="console">
+
+  <div class="identity">
+    <div class="identity-left">
+      <span class="led" id="connLed"></span>
+      <div>
+        <div class="device-name">NPG Lite - Calibration Console</div>
+        <div class="conn-status" id="connStatus">Not connected</div>
+      </div>
+    </div>
+    <div class="mac-block">
+      <div>Board MAC address</div>
+      <div class="mac-value" id="macValue">- - : - - : - - : - - : - - : - -</div>
+    </div>
+  </div>
+
+  <div class="support-note" id="supportNote">
+    <strong>Web Bluetooth Unavailable:</strong>
+    Please open this page in Chrome or Edge, served securely over HTTPS or via <code>localhost</code> to connect with your board.
+  </div>
+
+  <div class="connect-bar">
+    <button class="primary" id="connectBtn">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M7 7l10 10-5 5V2l5 5L7 17"/></svg>
+      Connect to board
+    </button>
+    <button id="startBtn" disabled>Start calibration</button>
+    <button class="ghost" id="replayBtn" disabled title="Repeat instruction">
+      🔊 Repeat instruction
+    </button>
+  </div>
+
+  <div class="status-line">
+    <div class="status-text">
+      <div class="headline" id="instructionLine">Connect the board to begin.</div>
+      <div class="sub" id="instructionSub">Calibration runs as five fixed, timed steps.</div>
+    </div>
+    <div class="status-right">
+      <div class="phase-tag" id="phaseLabel">Idle</div>
+      <div class="countdown-badge" id="countdownBadge">-</div>
+    </div>
+  </div>
+
+  <div class="two-col">
+    <div class="col col-left">
+      <div class="ledger" id="ledger"></div>
+
+      <div class="readouts">
+        <div class="readout-card">
+          <div class="readout-label">Right threshold (+)</div>
+          <div class="readout-value" id="posThValue">- -</div>
+        </div>
+        <div class="readout-card">
+          <div class="readout-label">Left threshold (−)</div>
+          <div class="readout-value" id="negThValue">- -</div>
+        </div>
+        <div class="readout-card">
+          <div class="readout-label">Blink threshold</div>
+          <div class="readout-value" id="blinkThValue">- -</div>
+        </div>
+      </div>
+
+      <div class="footer-row">
+        <div class="hint">
+          Steering calibrated to 50% peak deflection.<br>
+          Blink threshold calibrated to 55% peak envelope.
+        </div>
+        <div class="voice-toggle">
+          <span>Voice prompts</span>
+          <div class="switch on" id="voiceSwitch"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col col-right">
+      <div class="test-panel disabled" id="testPanel">
+        <div class="test-header">
+          <div class="scope-title">Live Command Monitor</div>
+          <div class="test-substate">
+            DRIVE <span class="state-val" id="driveStateLabel">STOPPED</span>
+            <span class="sep">·</span>
+            STEER <span class="state-val" id="steerStateLabel">STRAIGHT</span>
+          </div>
+        </div>
+
+        <div class="dpad">
+          <div class="dpad-cell"></div>
+          <div class="dpad-cell dpad-fwd" id="padForward">
+            <span class="dpad-icon">▲</span>
+            <span class="dpad-text">FORWARD</span>
+            <span class="dpad-cmd">cmd 3</span>
+          </div>
+          <div class="dpad-cell"></div>
+
+          <div class="dpad-cell dpad-left" id="padLeft">
+            <span class="dpad-icon">◀</span>
+            <span class="dpad-text">LEFT</span>
+            <span class="dpad-cmd">cmd 1</span>
+          </div>
+          <div class="dpad-cell dpad-stop" id="padStop">
+            <span class="dpad-icon">■</span>
+            <span class="dpad-text">STOP</span>
+            <span class="dpad-cmd">cmd 0</span>
+          </div>
+          <div class="dpad-cell dpad-right" id="padRight">
+            <span class="dpad-icon">▶</span>
+            <span class="dpad-text">RIGHT</span>
+            <span class="dpad-cmd">cmd 2</span>
+          </div>
+
+          <div class="dpad-cell"></div>
+          <div class="dpad-cell dpad-rev" id="padReverse">
+            <span class="dpad-icon">▼</span>
+            <span class="dpad-text">REVERSE</span>
+            <span class="dpad-cmd">cmd 4</span>
+          </div>
+          <div class="dpad-cell"></div>
+        </div>
+
+        <div class="test-hint" id="testHint">
+          Connect board to test - look left/right for pivot, double-blink to toggle movement, triple-blink to stop.
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  // ---- BLE Identifiers ----
+  const SERVICE_UUID   = "4fafc201-1fb5-459e-8fcc-c5c9c331914b";
+  const CMD_CHAR_UUID  = "beb5483e-36e1-4688-b7f5-ea07361b26a8"; 
+  const STATUS_CHAR_UUID = "1c95d5e3-d8f7-413a-bf3d-7a2e5d7be87e"; 
+  const CTRL_CHAR_UUID = "3c9a1235-2f9e-4d34-9f0e-6a1b6d0c9a11"; 
+
+  const STEP_DEFS = [
+    { key: "straight", label: "Look straight ahead", say: "Calibration starting. Look straight ahead and hold." , sub: "Settling baseline - hold still for about 4 seconds.", durationMs: 4000 },
+    { key: "right",    label: "Roll eyes towards right", say: "roll eyes towards right, and hold.", sub: "Hold the gaze right for about 4 seconds.", durationMs: 4000 },
+    { key: "left",     label: "Roll eyes towards left", say: "roll eyes towards left, and hold.", sub: "Hold the gaze left for about 4 seconds.", durationMs: 4000 },
+    { key: "blink",    label: "Blink continuously", say: "Now blink continuously at a normal pace.", sub: "Blink naturally for about 5 seconds.", durationMs: 5000 },
+    { key: "ready",    label: "Calibration complete", say: "Calibration complete. The board is ready.", sub: "Thresholds below are now active on the board.", durationMs: 0 },
+  ];
+
+  let device = null, server = null, statusChar = null, ctrlChar = null, cmdChar = null;
+  let voiceOn = true;
+  let currentStepIndex = -1;
+
+  // DOM Elements
+  const connLed = document.getElementById('connLed');
+  const connStatus = document.getElementById('connStatus');
+  const macValue = document.getElementById('macValue');
+  const connectBtn = document.getElementById('connectBtn');
+  const startBtn = document.getElementById('startBtn');
+  const replayBtn = document.getElementById('replayBtn');
+  const phaseLabel = document.getElementById('phaseLabel');
+  const countdownBadge = document.getElementById('countdownBadge');
+  const instructionLine = document.getElementById('instructionLine');
+  const instructionSub = document.getElementById('instructionSub');
+  const ledger = document.getElementById('ledger');
+  const posThValue = document.getElementById('posThValue');
+  const negThValue = document.getElementById('negThValue');
+  const blinkThValue = document.getElementById('blinkThValue');
+  const voiceSwitch = document.getElementById('voiceSwitch');
+  const supportNote = document.getElementById('supportNote');
+  const testPanel = document.getElementById('testPanel');
+  const testHint = document.getElementById('testHint');
+  const driveStateLabel = document.getElementById('driveStateLabel');
+  const steerStateLabel = document.getElementById('steerStateLabel');
+  const padForward = document.getElementById('padForward');
+  const padReverse = document.getElementById('padReverse');
+  const padLeft = document.getElementById('padLeft');
+  const padRight = document.getElementById('padRight');
+  const padStop = document.getElementById('padStop');
+
+  const PIVOT_HOLD_MS = 800;
+  let driveState = "STOPPED";   
+  let steerState = "STRAIGHT";  
+  let pivotRevertTimer = null;
+
+  if (!navigator.bluetooth) {
+    supportNote.classList.add('show');
+    connectBtn.disabled = true;
+    connectBtn.textContent = "Web Bluetooth unavailable";
+  }
+
+  function renderLedger() {
+    ledger.innerHTML = "";
+    STEP_DEFS.forEach((step, i) => {
+      const row = document.createElement('div');
+      row.className = 'step-row';
+      if (i < currentStepIndex) row.classList.add('done');
+      if (i === currentStepIndex) row.classList.add('active');
+      row.innerHTML = `
+        <div class="step-num">${i < currentStepIndex ? '✓' : i + 1}</div>
+        <div class="step-label">${step.label}</div>
+        <div class="step-mark">${i === currentStepIndex ? 'ACTIVE' : (i < currentStepIndex ? 'DONE' : '')}</div>
+      `;
+      ledger.appendChild(row);
+    });
+  }
+  renderLedger();
+
+  voiceSwitch.addEventListener('click', () => {
+    voiceOn = !voiceOn;
+    voiceSwitch.classList.toggle('on', voiceOn);
+    if (!voiceOn) window.speechSynthesis.cancel();
+  });
+
+  function speak(text, onDone) {
+    if (!voiceOn || !('speechSynthesis' in window)) {
+      if (onDone) onDone();
+      return;
+    }
+    window.speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.rate = 0.98;
+    u.pitch = 1.0;
+
+    let finished = false;
+    const finish = () => {
+      if (finished) return;
+      finished = true;
+      if (onDone) onDone();
+    };
+    u.onend = finish;
+    u.onerror = finish;
+    setTimeout(finish, Math.max(2500, text.length * 90));
+
+    window.speechSynthesis.speak(u);
+  }
+
+  replayBtn.addEventListener('click', () => {
+    if (currentStepIndex >= 0 && currentStepIndex < STEP_DEFS.length) {
+      speak(STEP_DEFS[currentStepIndex].say);
+    }
+  });
+
+  let audioCtx = null;
+  function ensureAudioContext() {
+    if (!audioCtx) {
+      const Ctx = window.AudioContext || window.webkitAudioContext;
+      if (!Ctx) return null;
+      audioCtx = new Ctx();
+    }
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    return audioCtx;
+  }
+
+  function playBeep(freq, durationSec, gainLevel) {
+    const ctx = ensureAudioContext();
+    if (!ctx) return;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = freq;
+    gain.gain.setValueAtTime(gainLevel, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + durationSec);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + durationSec);
+  }
+
+  let countdownInterval = null;
+
+  function pulseCountdownBadge() {
+    countdownBadge.classList.remove('tick');
+    void countdownBadge.offsetWidth; 
+    countdownBadge.classList.add('tick');
+  }
+
+  function stopCountdown() {
+    if (countdownInterval) {
+      clearInterval(countdownInterval);
+      countdownInterval = null;
+    }
+    countdownBadge.classList.remove('show', 'tick');
+    countdownBadge.textContent = "-";
+  }
+
+  function startCountdown(durationMs) {
+    stopCountdown();
+    let remaining = Math.round(durationMs / 1000);
+    if (remaining <= 0) return;
+
+    countdownBadge.classList.add('show');
+    countdownBadge.textContent = remaining;
+    playBeep(660, 0.09, 0.12);
+    pulseCountdownBadge();
+
+    countdownInterval = setInterval(() => {
+      remaining -= 1;
+      if (remaining <= 0) {
+        clearInterval(countdownInterval);
+        countdownInterval = null;
+        countdownBadge.classList.remove('show');
+        return;
+      }
+      countdownBadge.textContent = remaining;
+      playBeep(remaining === 1 ? 940 : 660, 0.09, 0.12);
+      pulseCountdownBadge();
+    }, 1000);
+  }
+
+  async function sendGoSignal() {
+    if (!ctrlChar) return;
+    try {
+      const encoder = new TextEncoder();
+      await ctrlChar.writeValue(encoder.encode("GO"));
+    } catch (err) {
+      console.error("Failed to send GO signal:", err);
+    }
+  }
+
+  function applyPhase(phase, data) {
+    phaseLabel.textContent = phase;
+    stopCountdown();
+
+    const idx = STEP_DEFS.findIndex(s => s.key === phase);
+    if (idx !== -1) {
+      currentStepIndex = idx;
+      renderLedger();
+      instructionLine.textContent = STEP_DEFS[idx].label;
+      replayBtn.disabled = false;
+
+      const durationMs = (typeof data.durationMs === "number" && data.durationMs > 0)
+        ? data.durationMs
+        : STEP_DEFS[idx].durationMs;
+
+      if (data.awaitGo && durationMs) {
+        instructionSub.textContent = STEP_DEFS[idx].sub;
+        speak(STEP_DEFS[idx].say, () => {
+          sendGoSignal();
+          startCountdown(durationMs);
+        });
+      } else {
+        instructionSub.textContent = STEP_DEFS[idx].sub;
+        speak(STEP_DEFS[idx].say);
+      }
+    }
+
+    if (phase === "eog_done") {
+      if (typeof data.posTh === "number") {
+        posThValue.textContent = data.posTh.toFixed(4);
+        posThValue.classList.add('filled');
+      }
+      if (typeof data.negTh === "number") {
+        negThValue.textContent = data.negTh.toFixed(4);
+        negThValue.classList.add('filled');
+      }
+    }
+
+    if (phase === "ready") {
+      if (typeof data.posTh === "number") {
+        posThValue.textContent = data.posTh.toFixed(4);
+        posThValue.classList.add('filled');
+      }
+      if (typeof data.negTh === "number") {
+        negThValue.textContent = data.negTh.toFixed(4);
+        negThValue.classList.add('filled');
+      }
+      if (typeof data.blinkTh === "number") {
+        blinkThValue.textContent = data.blinkTh.toFixed(2);
+        blinkThValue.classList.add('filled', 'amber');
+      }
+      if (data.mac) {
+        macValue.textContent = data.mac;
+      }
+      startBtn.disabled = false;
+      startBtn.textContent = "Recalibrate";
+    }
+
+    if (phase === "straight" && data.mac) {
+      macValue.textContent = data.mac;
+    }
+  }
+
+  function handleStatusNotification(event) {
+    const value = event.target.value;
+    const text = new TextDecoder().decode(value);
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch (e) {
+      console.warn("Non-JSON status payload:", text);
+      return;
+    }
+    if (data.phase) applyPhase(data.phase, data);
+  }
+
+  function updateDashboard() {
+    driveStateLabel.textContent = driveState;
+    steerStateLabel.textContent = steerState;
+
+    padForward.classList.toggle('active', driveState === "FORWARD");
+    padReverse.classList.toggle('active', driveState === "REVERSE");
+    padStop.classList.toggle('active', driveState === "STOPPED" && steerState === "STRAIGHT");
+    padLeft.classList.toggle('active', steerState === "LEFT");
+    padRight.classList.toggle('active', steerState === "RIGHT");
+  }
+
+  function pulsePad(el) {
+    el.classList.remove('pulse');
+    void el.offsetWidth;
+    el.classList.add('pulse');
+  }
+
+  function resetTestPanel() {
+    clearTimeout(pivotRevertTimer);
+    driveState = "STOPPED";
+    steerState = "STRAIGHT";
+    updateDashboard();
+  }
+
+  function handleCmdNotification(event) {
+    const value = event.target.value;
+    if (value.byteLength < 1) return;
+    const cmd = value.getUint8(0);
+
+    switch (cmd) {
+      case 0:
+        clearTimeout(pivotRevertTimer);
+        driveState = "STOPPED";
+        steerState = "STRAIGHT";
+        pulsePad(padStop);
+        break;
+
+      case 1:
+        clearTimeout(pivotRevertTimer);
+        steerState = "LEFT";
+        pulsePad(padLeft);
+        pivotRevertTimer = setTimeout(() => { steerState = "STRAIGHT"; updateDashboard(); }, PIVOT_HOLD_MS);
+        break;
+
+      case 2:
+        clearTimeout(pivotRevertTimer);
+        steerState = "RIGHT";
+        pulsePad(padRight);
+        pivotRevertTimer = setTimeout(() => { steerState = "STRAIGHT"; updateDashboard(); }, PIVOT_HOLD_MS);
+        break;
+
+      case 3:
+        driveState = "FORWARD";
+        pulsePad(padForward);
+        break;
+
+      case 4:
+        driveState = "REVERSE";
+        pulsePad(padReverse);
+        break;
+    }
+
+    updateDashboard();
+  }
+
+  let isConnected = false;
+
+  connectBtn.addEventListener('click', async () => {
+    if (isConnected) {
+      disconnectBoard();
+      return;
+    }
+    ensureAudioContext();
+    try {
+      connectBtn.disabled = true;
+      connectBtn.textContent = "Requesting device…";
+
+      device = await navigator.bluetooth.requestDevice({
+        filters: [{ name: "NPG Lite" }],
+        optionalServices: [SERVICE_UUID]
+      });
+
+      device.addEventListener('gattserverdisconnected', onDisconnected);
+
+      connectBtn.textContent = "Connecting…";
+      server = await device.gatt.connect();
+      const service = await server.getPrimaryService(SERVICE_UUID);
+
+      statusChar = await service.getCharacteristic(STATUS_CHAR_UUID);
+      await statusChar.startNotifications();
+      statusChar.addEventListener('characteristicvaluechanged', handleStatusNotification);
+
+      // Read the characteristic's current value right away - the board
+      // seeds it with { phase: "connected", mac } at boot, so this shows
+      // the MAC immediately on connect instead of waiting for a
+      // calibration phase notification.
+      try {
+        const initialValue = await statusChar.readValue();
+        const initialText = new TextDecoder().decode(initialValue);
+        const initialData = JSON.parse(initialText);
+        if (initialData.mac) {
+          macValue.textContent = initialData.mac;
+        }
+      } catch (readErr) {
+        console.warn("Could not read initial board status:", readErr);
+      }
+
+      ctrlChar = await service.getCharacteristic(CTRL_CHAR_UUID);
+
+      let cmdChannelReady = false;
+      try {
+        cmdChar = await service.getCharacteristic(CMD_CHAR_UUID);
+        await cmdChar.startNotifications();
+        cmdChar.addEventListener('characteristicvaluechanged', handleCmdNotification);
+        cmdChannelReady = true;
+      } catch (e) {}
+
+      connLed.classList.add('on');
+      connStatus.textContent = "Connected - " + device.name;
+      isConnected = true;
+      connectBtn.textContent = "Disconnect";
+      connectBtn.disabled = false;
+      startBtn.disabled = false;
+      instructionLine.textContent = "Board connected.";
+      instructionSub.textContent = "Press Start calibration when you're ready to begin the sequence.";
+
+      resetTestPanel();
+      if (cmdChannelReady) {
+        testPanel.classList.remove('disabled');
+        testHint.textContent = "Live - look left/right for pivot, double-blink to toggle movement, triple-blink to stop.";
+      } else {
+        testHint.textContent = "Command channel unavailable - live testing can't run on this connection.";
+      }
+
+    } catch (err) {
+      console.error(err);
+      connectBtn.disabled = false;
+      connectBtn.textContent = "Connect to board";
+      connStatus.textContent = "Connection cancelled or failed.";
+    }
+  });
+
+  startBtn.addEventListener('click', async () => {
+    if (!ctrlChar) return;
+    try {
+      startBtn.disabled = true;
+      posThValue.textContent = "- -"; posThValue.classList.remove('filled');
+      negThValue.textContent = "- -"; negThValue.classList.remove('filled');
+      blinkThValue.textContent = "- -"; blinkThValue.classList.remove('filled', 'amber');
+      currentStepIndex = -1;
+      renderLedger();
+      stopCountdown();
+
+      const encoder = new TextEncoder();
+      await ctrlChar.writeValue(encoder.encode("CAL"));
+    } catch (err) {
+      console.error(err);
+      startBtn.disabled = false;
+    }
+  });
+
+  function disconnectBoard() {
+    if (device && device.gatt && device.gatt.connected) {
+      device.gatt.disconnect();
+    } else {
+      onDisconnected();
+    }
+  }
+
+  function onDisconnected() {
+    isConnected = false;
+    connLed.classList.remove('on');
+    connLed.classList.remove('warn');
+    connStatus.textContent = "Disconnected";
+    connectBtn.disabled = false;
+    connectBtn.textContent = "Connect to board";
+    startBtn.disabled = true;
+    replayBtn.disabled = true;
+    phaseLabel.textContent = "Idle";
+    stopCountdown();
+
+    testPanel.classList.add('disabled');
+    testHint.textContent = "Connect board to test - look left/right for pivot, double-blink to toggle movement, triple-blink to stop.";
+    resetTestPanel();
+  }
+</script>
+
+</body>
+</html>
