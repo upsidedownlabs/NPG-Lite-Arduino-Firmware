@@ -176,7 +176,7 @@ void loop()
   unsigned long nowMicros = micros();
   if (nowMicros - lastEmgMicros >= 1000000UL / SAMPLE_RATE)
   {
-    lastEmgMicros = nowMicros;
+    lastEmgMicros += 1000000UL / SAMPLE_RATE;
 
     int rawEMG = analogRead(EMG_PIN);
     float notched = notchEMG.process((float)rawEMG);
