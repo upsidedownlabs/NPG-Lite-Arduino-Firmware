@@ -19,6 +19,8 @@ Control an addressable RGB (NeoPixel / WS2812) LED strip with one-channel EMG. F
    - Yellow (SCL) is not used
 
    You can use a STEMMA QT to male jumper cable, or cut one end of the cable and solder the wires directly to the strip.
+
+   **Power:** The strip is powered from the Qwiic port's 3V3, so use a short strip. For longer strips, use a separate power supply and connect its GND to NPG Lite's GND.
 2. Prepare the electrode areas with alcohol swabs and let the skin dry completely.
 3. Connect the EMG electrodes to channel A0:
    - Place the positive and negative electrodes a few centimetres apart over a muscle, for example a forearm flexor.
