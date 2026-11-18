@@ -45,7 +45,7 @@
 
 Adafruit_NeoPixel pixel(PIXEL_COUNT, PIXEL_PIN, NEO_GRB + NEO_KHZ800);
 #define BLE_LED 0
-#define MODE_LED 1
+#define MODE_LED 5
 
 // EEG Envelope Configuration
 #define ENVELOPE_WINDOW_MS 100 // Smoothing window in milliseconds
@@ -68,7 +68,7 @@ bool keyPressed = false;
 unsigned long keyPressTime = 0;
 
 // Mode Configuration
-const unsigned long BUTTON_DEBOUNCE_MS = 50;
+const unsigned long BUTTON_DEBOUNCE_MS = 200;
 enum Mode
 {
   MODE_OFF,
