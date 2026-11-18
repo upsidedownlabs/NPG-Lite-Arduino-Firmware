@@ -69,7 +69,13 @@ unsigned long keyPressTime = 0;
 
 // Mode Configuration
 const unsigned long BUTTON_DEBOUNCE_MS = 50;
-bool cameraMode = false;                     // false = Dino, true = Camera
+enum Mode
+{
+  MODE_OFF,
+  MODE_DINO,
+  MODE_CAMERA
+};
+Mode currentMode = MODE_OFF;                 // Off by default
 bool lastButtonState = HIGH;
 unsigned long lastButtonTime = 0;
 
@@ -242,16 +248,20 @@ void updateBLELed()
   }
 }
 
-// Pixel 1: green = Camera mode, blue = Dino mode
+// Pixel 1: red = Off, blue = Dino mode, green = Camera mode
 void updateModeLed()
 {
-  if (cameraMode)
+  if (currentMode == MODE_CAMERA)
   {
     pixel.setPixelColor(MODE_LED, pixel.Color(0, 20, 0));
   }
-  else
+  else if (currentMode == MODE_DINO)
   {
     pixel.setPixelColor(MODE_LED, pixel.Color(0, 0, 20));
+  }
+  else
+  {
+    pixel.setPixelColor(MODE_LED, pixel.Color(20, 0, 0));
   }
   pixel.show();
 }
@@ -259,13 +269,13 @@ void updateModeLed()
 // Press Space in Dino mode or Volume Up in Camera mode
 void pressKey()
 {
-  if (!clientConnected)
+  if (!clientConnected || currentMode == MODE_OFF)
   {
     return;
   }
 
   uint8_t report[REPORT_SIZE_BYTES] = {0};
-  if (cameraMode)
+  if (currentMode == MODE_CAMERA)
   {
     report[8] = VOLUME_UP;
     Serial.println("Volume Up sent!");
@@ -307,9 +317,23 @@ void checkModeButton()
 
     if (buttonState == LOW)
     {
-      cameraMode = !cameraMode;
+      // Cycle Off -> Dino -> Camera -> Off
+      if (currentMode == MODE_OFF)
+      {
+        currentMode = MODE_DINO;
+        Serial.println("Dino mode");
+      }
+      else if (currentMode == MODE_DINO)
+      {
+        currentMode = MODE_CAMERA;
+        Serial.println("Camera mode");
+      }
+      else
+      {
+        currentMode = MODE_OFF;
+        Serial.println("Off mode");
+      }
       updateModeLed();
-      Serial.println(cameraMode ? "Camera mode" : "Dino mode");
     }
   }
 }
@@ -396,7 +420,7 @@ void loop()
   }
 
   // Single blink detection with debounce
-  unsigned long debounceMs = cameraMode ? CAMERA_DEBOUNCE_MS : BLINK_DEBOUNCE_MS;
+  unsigned long debounceMs = (currentMode == MODE_CAMERA) ? CAMERA_DEBOUNCE_MS : BLINK_DEBOUNCE_MS;
   if (blinkArmed && currentEEGEnvelope > BlinkThreshold && (nowMs - lastBlinkTime) >= debounceMs)
   {
     blinkArmed = false;
